@@ -406,7 +406,7 @@ The `vercel.json` config triggers `/api/agent` every 15 minutes automatically af
 }
 ```
 
-> **Note on the live deployment:** For this hackathon submission, the live deployment runs manual cycles to avoid unnecessary mainnet transactions while the judges review the project. The autonomous loop is fully functional and can be enabled at any time using the `AGENT_LOOP=true` flag above.
+> **Note on the live deployment:** For this hackathon submission, the live deployment runs manual cycles to avoid unnecessary mainnet transactions during evaluation. The autonomous execution loop is fully implemented and can be enabled at any time using the AGENT_LOOP=true flag.
 
 ---
 
