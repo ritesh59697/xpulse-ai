@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "okx-agentic-wallet": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "computedHash": "4d2287bc8e4702d994fbe5725bb12d0d63ba8877bdb4616c991ee1ae530806cb"
+    },
+    "okx-dex-market": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "computedHash": "4c44653b1ac92775dc00ace77b75b57d0bcebab2c764a13acfb72c02cf0a63a0"
+    },
+    "okx-dex-swap": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "computedHash": "78b52efb065d9beac87305fd5d3c52690755821c3af51c06e2607b32bcc0d0d3"
+    }
+  }
+}
