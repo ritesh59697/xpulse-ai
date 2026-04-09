@@ -28,6 +28,7 @@ import {
   readMarketSnapshot,
   writeMarketSnapshot,
 } from "../lib/agent-store.ts";
+import { coinGeckoHeaders } from "../lib/coingecko.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,10 +124,7 @@ function okxHeaders(
 export async function fetchMarketData(): Promise<CoinData[]> {
   const coins = ["bitcoin", "ethereum", "okb", "solana", "chainlink"];
   const url   = `${CONFIG.COINGECKO_API}/coins/markets?vs_currency=usd&ids=${coins.join(",")}&order=market_cap_desc&sparkline=false`;
-  const headers: Record<string, string> = {};
-  if (process.env.COINGECKO_API_KEY) {
-    headers["x-cg-pro-api-key"] = process.env.COINGECKO_API_KEY;
-  }
+  const headers = coinGeckoHeaders();
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const res = await fetch(url, { headers });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { coinGeckoHeaders } from "@/lib/coingecko";
 
 const ALLOWED_COINS = new Set(["bitcoin", "ethereum", "solana", "chainlink", "okb"]);
 
@@ -10,10 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unsupported coin" }, { status: 400 });
   }
 
-  const headers: Record<string, string> = {};
-  if (process.env.COINGECKO_API_KEY) {
-    headers["x-cg-pro-api-key"] = process.env.COINGECKO_API_KEY;
-  }
+  const headers = coinGeckoHeaders();
 
   const url = `https://api.coingecko.com/api/v3/coins/${normalizedCoin}/market_chart?vs_currency=usd&days=1&interval=hourly`;
 

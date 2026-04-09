@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readMarketSnapshot, writeMarketSnapshot } from "@/lib/agent-store";
+import { coinGeckoHeaders } from "@/lib/coingecko";
 
 export async function GET() {
   const coins = ["bitcoin", "ethereum", "okb", "solana", "chainlink"];
@@ -7,10 +8,7 @@ export async function GET() {
   const globalUrl = "https://api.coingecko.com/api/v3/global";
 
   try {
-    const headers: Record<string, string> = {};
-    if (process.env.COINGECKO_API_KEY) {
-      headers["x-cg-pro-api-key"] = process.env.COINGECKO_API_KEY;
-    }
+    const headers = coinGeckoHeaders();
 
     const [marketsRes, globalRes] = await Promise.all([
       fetch(marketsUrl, {
