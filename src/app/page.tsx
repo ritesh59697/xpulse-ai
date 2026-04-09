@@ -352,7 +352,7 @@ function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolea
   return (
     <GlassCard style={{ padding: "20px 22px" }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: t.textSub, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16 }}>AI Reasoning Timeline</div>
-      <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ maxHeight: 260, overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", gap: 2 }}>
         {events.length === 0 && <div style={{ fontSize: 12, color: t.textMuted, padding: "20px", textAlign: "center" as const }}>Waiting for agent cycle...</div>}
         {events.map((ev, i) => {
           const c = cfg[ev.type];
@@ -372,7 +372,7 @@ function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolea
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function XpulseDashboard() {
-  const [dark, setDark]                     = useState(true);
+  const [dark, setDark]                     = useState(false);
   const [viewportWidth, setViewportWidth]   = useState(1440);
   const [marketData, setMarketData]         = useState<CoinData[]>(FALLBACK_MARKET);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState<number | null>(null);
@@ -407,7 +407,11 @@ export default function XpulseDashboard() {
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("xpulse-theme");
-    if (saved) setDark(saved === "dark");
+    if (saved) {
+      setDark(saved === "dark");
+    } else {
+      setDark(false);
+    }
   }, []);
   useEffect(() => { if (mounted) localStorage.setItem("xpulse-theme", dark ? "dark" : "light"); }, [dark, mounted]);
   useEffect(() => {
@@ -642,7 +646,7 @@ export default function XpulseDashboard() {
     const marketInterval = setInterval(() => {
       fetchMarket();
       fetchChart();
-    }, 30000);
+    }, 60000);
 
     return () => {
       clearInterval(agentInterval);
@@ -672,23 +676,26 @@ export default function XpulseDashboard() {
   const headerLayout = isTablet ? "column" : "row";
   const mainPadding = isMobile ? "18px 14px 28px" : isTablet ? "24px 20px 32px" : "28px 32px";
   const tableColumns = isMobile ? "1.4fr 76px" : "1.4fr 70px 1fr 100px 80px 80px";
+  const headerBlur = isMobile ? "blur(14px) saturate(145%)" : "blur(24px) saturate(180%)";
+  const pageTransition = isMobile ? "background 0.25s ease" : "background 0.5s ease";
 
   const cssVars = { "--card": t.card, "--card-border": t.cardBorder } as React.CSSProperties;
 
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif", transition: "background 0.5s ease", ...cssVars }}>
+    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif", transition: pageTransition, overflowX: "hidden", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", ...cssVars }}>
       <style>{`
         @keyframes ping { 75%,100%{transform:scale(2);opacity:0} }
         @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
         * { box-sizing:border-box; margin:0; padding:0; }
+        html { scroll-behavior: smooth; }
         ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; }
         ::-webkit-scrollbar-thumb { background:rgba(128,128,128,0.2); border-radius:2px; }
       `}</style>
 
       {/* ── Header ── */}
-      <header style={{ display: "flex", flexDirection: headerLayout, alignItems: isTablet ? "stretch" : "center", justifyContent: "space-between", gap: isTablet ? 12 : 0, padding: isMobile ? "12px 14px" : isTablet ? "14px 20px" : "14px 32px", background: t.headerBg, backdropFilter: "blur(24px) saturate(180%)", WebkitBackdropFilter: "blur(24px) saturate(180%)", borderBottom: `1px solid ${t.cardBorder}`, position: "sticky", top: 0, zIndex: 100 }}>
+      <header style={{ display: "flex", flexDirection: headerLayout, alignItems: isTablet ? "stretch" : "center", justifyContent: "space-between", gap: isTablet ? 12 : 0, padding: isMobile ? "12px 14px" : isTablet ? "14px 20px" : "14px 32px", background: t.headerBg, backdropFilter: headerBlur, WebkitBackdropFilter: headerBlur, borderBottom: `1px solid ${t.cardBorder}`, position: "sticky", top: 0, zIndex: 100 }}>
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${t.accent}, ${t.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#fff", boxShadow: `0 4px 16px ${t.accentGlow}` }}>X</div>
@@ -732,10 +739,10 @@ export default function XpulseDashboard() {
                 background: agentRunning ? t.accentSoft : `linear-gradient(135deg, ${t.accent}, ${t.purple})`,
                 border: "none",
                 borderRadius: 10,
-                padding: "8px 16px",
+                padding: isMobile ? "10px 16px" : "8px 16px",
                 cursor: agentRunning ? "not-allowed" : "pointer",
                 color: agentRunning ? t.textMuted : "#fff",
-                fontSize: 12,
+                fontSize: isMobile ? 13 : 12,
                 fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
@@ -752,7 +759,7 @@ export default function XpulseDashboard() {
               </span>
               {agentRunning ? "Running..." : "Run Agent"}
             </button>
-            <button onClick={() => setDark(d => !d)} style={{ background: dark ? "rgba(255,255,255,0.07)" : "rgba(37,99,235,0.1)", border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(37,99,235,0.2)"}`, borderRadius: 50, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: dark ? "rgba(180,190,220,0.7)" : "rgba(37,99,235,0.8)", fontSize: 12, flex: isMobile ? 1 : "initial" }}>
+            <button onClick={() => setDark(d => !d)} style={{ background: dark ? "rgba(255,255,255,0.07)" : "rgba(37,99,235,0.1)", border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(37,99,235,0.2)"}`, borderRadius: 50, padding: isMobile ? "10px 14px" : "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: dark ? "rgba(180,190,220,0.7)" : "rgba(37,99,235,0.8)", fontSize: isMobile ? 13 : 12, flex: isMobile ? 1 : "initial" }}>
               <span style={{ fontSize: 14 }}>{dark ? "☀️" : "🌙"}</span>
               <span style={{ fontWeight: 500 }}>{dark ? "Light" : "Dark"}</span>
             </button>

@@ -75,7 +75,7 @@ Decision: { action: 'BUY', asset: 'ETH', confidence: 85 }
 The agent follows this pipeline on every cycle:
 
 ```
-Market Data → AI Analysis → Quant Risk Layer → Onchain Execution → Dashboard Update
+Market Data → AI Suggestion → Quant Risk Layer → Onchain Execution → Dashboard Update
 ```
 
 1. Fetches live market data from CoinGecko
@@ -114,7 +114,7 @@ Xpulse AI is not just a dashboard or a market tracker. It is a working agent tha
 - **Apply quant risk rules** — every AI signal is validated against confidence thresholds, momentum checks, and balance limits before execution
 - **Execute onchain trades** — submits real transactions on X Layer Mainnet using the okx-agentic-wallet and okx-dex-swap skills
 - **Maintain portfolio state** — tracks live OKB and WOKB balances with USD values, fetched server-side to avoid CORS issues
-- **Record transaction history** — stores the last 10 confirmed transactions in a local JSON file, accessible via API
+- **Record transaction history** — stores the latest confirmed transactions in persistent agent storage, exposed through API routes
 - **Update the dashboard automatically** — the frontend polls for new data every 5 seconds so the UI reflects agent activity in near real time
 
 ---
@@ -132,7 +132,7 @@ Xpulse AI is not just a dashboard or a market tracker. It is a working agent tha
 | 💼 Portfolio Tracking | Live OKB and WOKB balances with USD value |
 | 📋 Activity History | Last 10 onchain transactions with clickable explorer links |
 | ⏱ AI Reasoning Timeline | Timestamped log of every agent decision and action |
-| 🔁 Autonomous Loop | Supports continuous 15-minute cycles via Vercel Cron or CLI flag |
+| 🔁 Execution Modes | Supports local CLI execution and production-safe manual triggering via the dashboard Run Agent button |
 
 ---
 
@@ -231,7 +231,7 @@ The AI generates a trading signal, but that signal only reaches the blockchain i
 ### Step 1 — Fetch Market Data
 The agent calls the CoinGecko API and retrieves live prices, 24h percentage changes, and volume data for BTC, ETH, OKB, SOL, and LINK.
 
-### Step 2 — AI Analysis
+### Step 2 — AI Suggestion
 Market data is sent to **Groq LLaMA 3.3** with a structured prompt. The model analyzes price momentum, volume trends, and relative performance. It produces a brief market insight followed by an explicit action signal:
 
 ```
@@ -256,7 +256,7 @@ The decision passes through the quant risk layer before any transaction is submi
 If the decision clears all risk checks, the agent submits the trade using **Onchain OS Skills**. The `okx-agentic-wallet` skill handles signing, and `okx-dex-swap` routes the transaction through the OKX DEX aggregator on X Layer.
 
 ### Step 6 — Record and Display
-The confirmed transaction hash is appended to `data/agent-transactions.json` (last 10 kept). The dashboard polls `/api/transactions` every 5 seconds and displays new activity automatically.
+The confirmed transaction hash is persisted in the agent store and exposed through `/api/transactions`. The dashboard polls every 5 seconds and displays new activity automatically.
 
 ---
 
@@ -319,7 +319,7 @@ Provides access to OKX DEX market data on X Layer, including token prices, liqui
 | **Explorer** | `https://www.oklink.com/xlayer` |
 | **Native Token** | OKB |
 | **Frontend** | Vercel (Next.js 14) |
-| **Agent Runner** | Vercel Cron / CLI autonomous loop |
+| **Agent Runner** | Dashboard-triggered `/api/agent` execution + local CLI runner |
 | **AI Provider** | Groq — LLaMA 3.3 70B |
 | **Market Data** | CoinGecko API |
 
@@ -352,16 +352,18 @@ All agent transactions are publicly verifiable on X Layer Mainnet.
 
 ## 12. Dashboard
 
-The dashboard is built with Next.js and styled with a glassmorphism design. It reads from the agent's data store and refreshes automatically every 5 seconds.
+The dashboard is built with Next.js and styled with a glassmorphism design. It reads from the agent's persistent store and refreshes automatically every 5 seconds.
 
 ### What the dashboard shows
 
 - **Agent Status** — live indicator showing whether the agent is active or idle, last run time, and total cycles completed
-- **AI Analysis Panel** — latest Groq market insight with BUY/SELL/HOLD signal and confidence score
+- **AI Suggestion Panel** — latest Groq market suggestion with BUY / SELL / HOLD output, displayed separately from executed trades
 - **Portfolio Card** — real-time OKB and WOKB balances with USD value, fetched server-side
-- **Latest Trade Card** — most recent transaction with route, amount, and clickable explorer link
-- **Onchain Activity Table** — last 10 agent transactions with hash, type, route, status, and timestamp
-- **AI Reasoning Timeline** — step-by-step log of each cycle with timestamps and event types
+- **Last Executed Trade Card** — most recent confirmed onchain transaction with route, amount, and clickable explorer link
+- **Onchain Activity Table** — latest confirmed agent transactions with hash, type, route, status, and timestamp
+- **AI Reasoning Timeline** — timeline reconstructed from stored agent cycles and execution events
+- **Run Agent Button** — triggers a full production-safe agent cycle through `/api/agent`
+
 
 ## Screenshots
 
@@ -381,32 +383,26 @@ The dashboard is built with Next.js and styled with a glassmorphism design. It r
 
 ## 13. Autonomous Execution
 
-Xpulse AI supports three modes of operation:
+Xpulse AI supports two practical execution modes:
 
-**Single cycle (manual)**
-Runs one complete agent cycle and exits. Useful for testing.
+**Single cycle (local CLI)**  
+Runs one complete agent cycle and exits. Useful for testing the full pipeline locally.
 
 ```bash
 npx ts-node --project tsconfig.json scripts/run-agent.ts
 ```
 
-**Continuous autonomous loop**
-Runs a cycle immediately, then repeats every 15 minutes until stopped. This is full autonomy mode.
+**Production trigger (dashboard)**  
+In the deployed Vercel app, the agent runs through the **Run Agent** button. This triggers `POST /api/agent`, which executes a full cycle:
 
-```bash
-AGENT_LOOP=true npx ts-node --project tsconfig.json scripts/run-agent.ts
-```
+1. Fetch market data
+2. Generate Groq AI insight
+3. Apply quant risk checks
+4. Execute the onchain transaction if approved
+5. Persist status and transaction history
+6. Refresh the dashboard with the latest cycle output
 
-**Vercel Cron (production)**
-The `vercel.json` config triggers `/api/agent` every 15 minutes automatically after deployment. No process needs to stay running.
-
-```json
-{
-  "crons": [{ "path": "/api/agent", "schedule": "*/15 * * * *" }]
-}
-```
-
-> **Note on the live deployment:** For this hackathon submission, the live deployment runs manual cycles to avoid unnecessary mainnet transactions during evaluation. The autonomous execution loop is fully implemented and can be enabled at any time using the AGENT_LOOP=true flag.
+> **Production note:** The live deployment uses persistent serverless storage for status and transaction history, making the dashboard compatible with Vercel's serverless environment. This keeps the submission safe for evaluation while still demonstrating real X Layer execution.
 
 ---
 
@@ -454,7 +450,8 @@ npm run dev
 git push origin main
 # Import repo at vercel.com
 # Add environment variables in Vercel dashboard
-# Vercel Cron activates automatically from vercel.json
+# Connect Vercel KV / Redis storage
+# Deploy and trigger live cycles from the Run Agent button
 ```
 
 ---
@@ -504,7 +501,7 @@ xpulse-ai/
 │   │   └── api/
 │   │       ├── market/route.ts       ← CoinGecko market data proxy
 │   │       ├── insight/route.ts      ← Groq AI insight endpoint
-│   │       ├── agent/route.ts        ← Agent cycle trigger (Vercel Cron)
+│   │       ├── agent/route.ts        ← Agent cycle trigger endpoint
 │   │       ├── status/route.ts       ← Real-time agent status
 │   │       ├── transactions/route.ts ← Transaction history
 │   │       └── portfolio/route.ts    ← Live wallet balances (server-side)
@@ -512,14 +509,13 @@ xpulse-ai/
 │   │   └── xpulse-agent.ts           ← Core agent logic ⭐
 │   └── lib/
 │       ├── xlayer.ts                 ← Network-aware X Layer helpers
-│       └── agent-store.ts            ← JSON persistence layer
+│       └── agent-store.ts            ← KV-backed persistence with local JSON fallback
 ├── scripts/
 │   └── run-agent.ts                  ← CLI runner with loop support
 ├── data/
 │   ├── agent-status.json             ← Live agent state
 │   └── agent-transactions.json       ← Transaction history (last 10)
 ├── .env.example
-├── vercel.json                       ← Cron: every 15 minutes
 └── README.md
 ```
 
@@ -532,11 +528,11 @@ xpulse-ai/
 - [x] ✅ **Onchain OS Skills** — `okx-agentic-wallet`, `okx-dex-swap`, `okx-dex-market`
 - [x] ✅ **Agentic Wallet** — signs and submits transactions autonomously
 - [x] ✅ **Real Onchain Transactions** — verifiable on OKLink explorer
-- [x] ✅ **AI Analysis** — Groq LLaMA 3.3 with structured market reasoning
+- [x] ✅ **AI Suggestion** — Groq LLaMA 3.3 with structured market reasoning
 - [x] ✅ **Quant Risk Layer** — numeric safety rules protect against bad trades
 - [x] ✅ **Live Dashboard** — glassmorphism UI, dark/light mode, 5s refresh
 - [x] ✅ **Portfolio Tracking** — server-side balance fetch, no CORS issues
-- [x] ✅ **Vercel Deployment** — live public URL with cron support
+- [x] ✅ **Vercel Deployment** — live public URL with serverless persistence
 - [x] ✅ **Autonomous Loop** — `AGENT_LOOP=true` for continuous operation
 - [x] ✅ **Public GitHub** — open source with full documentation
 

@@ -25,6 +25,8 @@ import {
   writeAgentStatus,
   appendTransaction,
   readAgentStatus,
+  readMarketSnapshot,
+  writeMarketSnapshot,
 } from "../lib/agent-store.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -71,6 +73,7 @@ const CONFIG = {
   // Safety limits for mainnet
   MAINNET_TRADE_OKB: "0.0005",   // ~$0.03 at $60/OKB — very safe
   MAX_TRADE_OKB:     "0.001",    // hard ceiling
+  MIN_CONFIDENCE:    60,
 
   BUY_THRESHOLD:  5,
   SELL_THRESHOLD: -4,
@@ -120,9 +123,41 @@ function okxHeaders(
 export async function fetchMarketData(): Promise<CoinData[]> {
   const coins = ["bitcoin", "ethereum", "okb", "solana", "chainlink"];
   const url   = `${CONFIG.COINGECKO_API}/coins/markets?vs_currency=usd&ids=${coins.join(",")}&order=market_cap_desc&sparkline=false`;
-  const res   = await fetch(url);
-  if (!res.ok) throw new Error(`CoinGecko fetch failed: ${res.status}`);
-  return res.json();
+  const headers: Record<string, string> = {};
+  if (process.env.COINGECKO_API_KEY) {
+    headers["x-cg-pro-api-key"] = process.env.COINGECKO_API_KEY;
+  }
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetch(url, { headers });
+    if (res.ok) {
+      const data = await res.json() as CoinData[];
+      await writeMarketSnapshot({ coins: data, updatedAt: Date.now() });
+      return data;
+    }
+
+    if (res.status === 429 && attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      continue;
+    }
+
+    if (res.status === 429) {
+      const cached = await readMarketSnapshot();
+      if (cached?.coins?.length) {
+        console.warn("[Market] CoinGecko rate-limited, using cached market snapshot");
+        return cached.coins as CoinData[];
+      }
+    }
+
+    throw new Error(`CoinGecko fetch failed: ${res.status}`);
+  }
+
+  const cached = await readMarketSnapshot();
+  if (cached?.coins?.length) {
+    console.warn("[Market] Using cached market snapshot after retry exhaustion");
+    return cached.coins as CoinData[];
+  }
+  throw new Error("CoinGecko fetch failed: 429");
 }
 
 export function detectTopMovers(data: CoinData[]) {
@@ -184,14 +219,23 @@ export function evaluateDecision(marketData: CoinData[], aiSummary: string): Age
   else if (Math.abs(change) < 1)                                  { confidence = 70; finalAction = "HOLD"; }
   else if (aiAction === "SWAP")                                   { confidence = 65; finalAction = "SWAP"; }
 
+  if (finalAction !== "HOLD" && confidence < CONFIG.MIN_CONFIDENCE) {
+    finalAction = "HOLD";
+  }
+
   const targetAsset = finalAction === "SWAP"
     ? marketData.find(c => c.symbol !== coin.symbol && c.price_change_percentage_24h > 0)?.symbol?.toUpperCase()
     : undefined;
 
+  const reason =
+    finalAction === "HOLD" && aiAction !== "HOLD" && confidence < CONFIG.MIN_CONFIDENCE
+      ? `AI: ${aiAction}, 24h: ${change.toFixed(2)}%, confidence: ${confidence}% — downgraded to HOLD below ${CONFIG.MIN_CONFIDENCE}% threshold`
+      : `AI: ${aiAction}, 24h: ${change.toFixed(2)}%, confidence: ${confidence}%`;
+
   return {
     action: finalAction, asset: coin.symbol.toUpperCase(), targetAsset,
     amount: `${CONFIG.MAINNET_TRADE_OKB} OKB`,
-    reason: `AI: ${aiAction}, 24h: ${change.toFixed(2)}%, confidence: ${confidence}%`,
+    reason,
     confidence, timestamp: Date.now(),
   };
 }
@@ -487,6 +531,8 @@ export async function runAgentCycle(): Promise<AgentCycleResult> {
         amountInOkb: CONFIG.MAINNET_TRADE_OKB,
         label,
       })) ?? undefined;
+    } else if (decision.confidence < CONFIG.MIN_CONFIDENCE) {
+      console.log(`[Agent] Confidence ${decision.confidence}% < ${CONFIG.MIN_CONFIDENCE}% threshold → HOLD`);
     }
 
     const prevStatus = await readAgentStatus();

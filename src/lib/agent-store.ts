@@ -31,6 +31,26 @@ export interface StoredTransaction {
   timestamp: number;   // unix ms
 }
 
+export interface StoredMarketCoin {
+  id: string;
+  symbol: string;
+  name: string;
+  current_price: number;
+  price_change_percentage_24h: number;
+  market_cap: number;
+  total_volume?: number;
+  image?: string;
+}
+
+export interface StoredMarketSnapshot {
+  coins: StoredMarketCoin[];
+  global?: {
+    market_cap_usd: number | null;
+    market_cap_change_percentage_24h_usd: number | null;
+  };
+  updatedAt: number;
+}
+
 const USE_KV = !!process.env.KV_REST_API_URL;
 
 async function kvGet<T>(key: string, fallback: T): Promise<T> {
@@ -55,6 +75,7 @@ async function kvSet(key: string, value: unknown): Promise<void> {
 const DATA_DIR = path.join(process.cwd(), "data");
 const STATUS_FILE = path.join(DATA_DIR, "agent-status.json");
 const TX_FILE = path.join(DATA_DIR, "agent-transactions.json");
+const MARKET_FILE = path.join(DATA_DIR, "market-snapshot.json");
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -120,6 +141,21 @@ export async function appendTransaction(tx: StoredTransaction): Promise<void> {
     return;
   }
   fileWrite(TX_FILE, updated);
+}
+
+// ─── Market snapshot ──────────────────────────────────────────────────────────
+
+export async function readMarketSnapshot(): Promise<StoredMarketSnapshot | null> {
+  if (USE_KV) return kvGet<StoredMarketSnapshot | null>("xpulse:market", null);
+  return fileRead<StoredMarketSnapshot | null>(MARKET_FILE, null);
+}
+
+export async function writeMarketSnapshot(snapshot: StoredMarketSnapshot): Promise<void> {
+  if (USE_KV) {
+    await kvSet("xpulse:market", snapshot);
+    return;
+  }
+  fileWrite(MARKET_FILE, snapshot);
 }
 
 // ─── Relative time helper (used by frontend too via API) ──────────────────────

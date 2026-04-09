@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readMarketSnapshot, writeMarketSnapshot } from "@/lib/agent-store";
 
 export async function GET() {
   const coins = ["bitcoin", "ethereum", "okb", "solana", "chainlink"];
@@ -30,16 +31,25 @@ export async function GET() {
       globalRes.json(),
     ]);
 
-    return NextResponse.json({
+    const snapshot = {
       coins: coinsData,
       global: {
         market_cap_usd: globalData?.data?.total_market_cap?.usd ?? null,
         market_cap_change_percentage_24h_usd:
           globalData?.data?.market_cap_change_percentage_24h_usd ?? null,
       },
-    });
+      updatedAt: Date.now(),
+    };
+
+    await writeMarketSnapshot(snapshot);
+
+    return NextResponse.json(snapshot);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    const cached = await readMarketSnapshot();
+    if (cached?.coins?.length) {
+      return NextResponse.json({ ...cached, cached: true, error: message }, { status: 200 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
