@@ -7,7 +7,7 @@ import { readAgentStatus, timeAgo } from "../../../lib/agent-store";
 
 export async function GET() {
   try {
-    const status = readAgentStatus();
+    const status = await readAgentStatus();
     return NextResponse.json({
       lastRun:        status.lastRun,
       lastRunAgo:     timeAgo(status.lastRun),

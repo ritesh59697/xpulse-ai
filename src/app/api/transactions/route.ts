@@ -7,7 +7,7 @@ import { readTransactions, timeAgo } from "../../../lib/agent-store";
 
 export async function GET() {
   try {
-    const txs = readTransactions();
+    const txs = await readTransactions();
 
     // Add human-readable relative time to each tx
     const result = txs.map(tx => ({

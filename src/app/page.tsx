@@ -376,6 +376,7 @@ export default function XpulseDashboard() {
   const [timeline, setTimeline]             = useState<TimelineEvent[]>([]);
   const [mounted, setMounted]               = useState(false);
   const [portfolio, setPortfolio]           = useState({ okb: 0, wokb: 0, okbUsd: 0, wokbUsd: 0, totalUsd: 0 });
+  const [agentRunning, setAgentRunning]     = useState(false);
   const [portfolioUpdatedAt, setPortfolioUpdatedAt] = useState<number | null>(null);
   const nextId                              = useRef(1);
   const t                                   = dark ? DARK : LIGHT;
@@ -511,6 +512,44 @@ export default function XpulseDashboard() {
     } catch { /* keep existing */ }
   }, []);
 
+  const runAgent = useCallback(async () => {
+    if (agentRunning) return;
+    setAgentRunning(true);
+    const now = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+    pushTimelineEvent("info", "Agent cycle triggered manually", now);
+    try {
+      const res = await fetch("/api/agent", { method: "POST" });
+      const data = await res.json() as {
+        success?: boolean;
+        error?: string;
+        txHash?: string | null;
+        decision?: { action?: string; asset?: string };
+      };
+
+      const now2 = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+      if (!res.ok || !data.success) {
+        pushTimelineEvent("info", `Cycle error: ${data.error ?? "unknown error"}`, now2);
+        return;
+      }
+
+      pushTimelineEvent(
+        data.txHash ? "confirm" : "decision",
+        data.txHash
+          ? `TX confirmed: ${data.txHash.slice(0, 10)}...`
+          : `Cycle complete — ${data.decision?.action ?? "HOLD"} ${data.decision?.asset ?? ""}`.trim(),
+        now2
+      );
+
+      await Promise.all([fetchStatus(), fetchTransactions(), fetchPortfolio()]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      const now2 = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+      pushTimelineEvent("info", `Cycle error: ${message}`, now2);
+    } finally {
+      setAgentRunning(false);
+    }
+  }, [agentRunning, fetchPortfolio, fetchStatus, fetchTransactions, pushTimelineEvent]);
+
   // ── AI insight (manual refresh) ─────────────────────────────────────────────
   const fetchInsight = useCallback(async (snapshot?: CoinData[]) => {
     setInsightLoading(true);
@@ -627,6 +666,31 @@ export default function XpulseDashboard() {
               <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>cycles completed: {agentStatus?.cycleCount ?? 0}</div>
             </div>
           </div>
+          <button
+            onClick={runAgent}
+            disabled={agentRunning}
+            style={{
+              background: agentRunning ? t.accentSoft : `linear-gradient(135deg, ${t.accent}, ${t.purple})`,
+              border: "none",
+              borderRadius: 10,
+              padding: "8px 16px",
+              cursor: agentRunning ? "not-allowed" : "pointer",
+              color: agentRunning ? t.textMuted : "#fff",
+              fontSize: 12,
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              opacity: agentRunning ? 0.7 : 1,
+              transition: "all 0.2s",
+              boxShadow: agentRunning ? "none" : `0 4px 14px ${t.accentGlow}`,
+            }}
+          >
+            <span style={{ fontSize: 14, animation: agentRunning ? "spin 1s linear infinite" : "none", display: "inline-block" }}>
+              {agentRunning ? "◌" : "▶"}
+            </span>
+            {agentRunning ? "Running..." : "Run Agent"}
+          </button>
           <button onClick={() => setDark(d => !d)} style={{ background: dark ? "rgba(255,255,255,0.07)" : "rgba(37,99,235,0.1)", border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(37,99,235,0.2)"}`, borderRadius: 50, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: dark ? "rgba(180,190,220,0.7)" : "rgba(37,99,235,0.8)", fontSize: 12 }}>
             <span style={{ fontSize: 14 }}>{dark ? "☀️" : "🌙"}</span>
             <span style={{ fontWeight: 500 }}>{dark ? "Light" : "Dark"}</span>

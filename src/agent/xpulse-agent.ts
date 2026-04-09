@@ -429,7 +429,7 @@ export async function executeOnchain(
     console.log(`[OnchainOS] Explorer: ${getTxExplorerUrl(hash)}`);
 
     // Store with actual route info — dashboard shows real trade details
-    appendTransaction({
+    await appendTransaction({
       hash,
       type:      decision.action,
       from:      route.fromSymbol,
@@ -459,7 +459,7 @@ export async function runAgentCycle(): Promise<AgentCycleResult> {
   console.log(`  Max trade: ${CONFIG.MAX_TRADE_OKB} OKB per cycle`);
   console.log("════════════════════════════════════════════");
 
-  writeAgentStatus({ isRunning: true });
+  await writeAgentStatus({ isRunning: true });
 
   try {
     console.log("[1/4] Fetching market data...");
@@ -489,8 +489,8 @@ export async function runAgentCycle(): Promise<AgentCycleResult> {
       })) ?? undefined;
     }
 
-    const prevStatus = readAgentStatus();
-    writeAgentStatus({
+    const prevStatus = await readAgentStatus();
+    await writeAgentStatus({
       lastRun:        Date.now(),
       lastAction:     decision.action,
       lastAsset:      decision.asset,
@@ -505,7 +505,7 @@ export async function runAgentCycle(): Promise<AgentCycleResult> {
     return { marketData, topGainers, topLosers, aiSummary, decision, walletAddress, txHash };
 
   } catch (err) {
-    writeAgentStatus({ isRunning: false });
+    await writeAgentStatus({ isRunning: false });
     throw err;
   }
 }

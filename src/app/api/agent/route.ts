@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { runAgentCycle } from "../../../agent/xpulse-agent";
 
 // This route triggers one full agent cycle with the same real execution path
 // used by the CLI runner.
+export const maxDuration = 60;
 
 export async function POST() {
   try {
+    const { runAgentCycle } = await import("../../../agent/xpulse-agent");
     const result = await runAgentCycle();
 
     return NextResponse.json({
