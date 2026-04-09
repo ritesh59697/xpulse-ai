@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 import { ethers }       from "ethers";
 import { ACTIVE, getProvider } from "@/lib/xlayer";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const WOKB = "0xe538905cf8410324e03a5a23c1c177a474d59b2b";
 const ERC20_ABI = ["function balanceOf(address) external view returns (uint256)"];
 

@@ -5,6 +5,9 @@
 import { NextResponse } from "next/server";
 import { readTransactions, timeAgo } from "../../../lib/agent-store";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const txs = await readTransactions();

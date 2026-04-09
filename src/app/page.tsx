@@ -79,15 +79,6 @@ const COIN_IDS: Record<string, string> = {
   okb: "okb",
 };
 
-// Known real transactions — shown as initial data until /api/transactions loads
-const REAL_TXS: Transaction[] = [
-  {
-    hash: "0x9f883201979a08473c3e301a431f6eaa8b5934c4676764bb109d4b158ec5868c",
-    type: "WRAP", from: "OKB", to: "WOKB", amount: "0.001 OKB",
-    status: "confirmed", timestamp: 1712252071000, timeAgo: "confirmed",
-  },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const EXPLORER = "https://www.oklink.com/xlayer";
@@ -198,29 +189,51 @@ function MarketMoverCard({ coin, dark }: { coin: CoinData; dark: boolean }) {
   );
 }
 
-function TxRow({ tx, dark, isLatest }: { tx: Transaction; dark: boolean; isLatest: boolean }) {
+function TxRow({ tx, dark, isLatest, compact = false }: { tx: Transaction; dark: boolean; isLatest: boolean; compact?: boolean }) {
   const t = dark ? DARK : LIGHT;
   const statusColor = tx.status === "confirmed" ? t.green : t.amber;
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: "1.4fr 70px 1fr 100px 80px 80px",
+      display: "grid", gridTemplateColumns: compact ? "1.4fr 76px" : "1.4fr 70px 1fr 100px 80px 80px",
       alignItems: "center", gap: 10, padding: "12px 18px",
       borderBottom: `1px solid ${t.cardBorder}`, fontSize: 12,
       background: isLatest ? (dark ? "rgba(79,158,255,0.04)" : "rgba(37,99,235,0.04)") : "transparent",
       transition: "background 0.3s",
     }}>
-      <a
-        href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
-        style={{ color: t.accent, fontFamily: "monospace", fontSize: 11, textDecoration: "none", borderBottom: `1px dashed ${t.accentGlow}`, paddingBottom: 1 }}
-        title="View on OKLink X Layer Mainnet"
-      >
-        {shortHash(tx.hash)} ↗
-      </a>
-      <span style={{ color: t.purple, background: t.purpleSoft, padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, textAlign: "center" as const }}>{tx.type}</span>
-      <span style={{ color: t.text, fontWeight: 500 }}>{tx.from} → {tx.to}</span>
-      <span style={{ color: t.textMuted }}>{tx.amount}</span>
-      <span style={{ color: statusColor, background: tx.status === "confirmed" ? t.greenSoft : "rgba(251,191,36,0.08)", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, textAlign: "center" as const }}>{tx.status}</span>
-      <span style={{ color: t.textSub, fontSize: 10 }}>{tx.timeAgo}</span>
+      {compact ? (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+            <a
+              href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
+              style={{ color: t.accent, fontFamily: "monospace", fontSize: 11, textDecoration: "none", borderBottom: `1px dashed ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", cursor: "pointer", position: "relative", zIndex: 1 }}
+              title="View on OKLink X Layer Mainnet"
+            >
+              {shortHash(tx.hash)} ↗
+            </a>
+            <span style={{ color: t.text, fontWeight: 500, fontSize: 11 }}>{tx.from} → {tx.to}</span>
+            <span style={{ color: t.textMuted, fontSize: 10 }}>{tx.amount} · {tx.timeAgo}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <span style={{ color: t.purple, background: t.purpleSoft, padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, textAlign: "center" as const }}>{tx.type}</span>
+            <span style={{ color: statusColor, background: tx.status === "confirmed" ? t.greenSoft : "rgba(251,191,36,0.08)", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, textAlign: "center" as const }}>{tx.status}</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <a
+            href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
+            style={{ color: t.accent, fontFamily: "monospace", fontSize: 11, textDecoration: "none", borderBottom: `1px dashed ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", cursor: "pointer", position: "relative", zIndex: 1 }}
+            title="View on OKLink X Layer Mainnet"
+          >
+            {shortHash(tx.hash)} ↗
+          </a>
+          <span style={{ color: t.purple, background: t.purpleSoft, padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, textAlign: "center" as const }}>{tx.type}</span>
+          <span style={{ color: t.text, fontWeight: 500 }}>{tx.from} → {tx.to}</span>
+          <span style={{ color: t.textMuted }}>{tx.amount}</span>
+          <span style={{ color: statusColor, background: tx.status === "confirmed" ? t.greenSoft : "rgba(251,191,36,0.08)", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, textAlign: "center" as const }}>{tx.status}</span>
+          <span style={{ color: t.textSub, fontSize: 10 }}>{tx.timeAgo}</span>
+        </>
+      )}
     </div>
   );
 }
@@ -250,7 +263,7 @@ function LatestTxMonitor({ tx, dark }: { tx: Transaction | null; dark: boolean }
         <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 10 }}>amount: {tx.amount}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <a href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 11, color: t.accent, fontFamily: "monospace", textDecoration: "none", fontWeight: 600, borderBottom: `1px solid ${t.accentGlow}`, paddingBottom: 1 }}>
+            style={{ fontSize: 11, color: t.accent, fontFamily: "monospace", textDecoration: "none", fontWeight: 600, borderBottom: `1px solid ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", cursor: "pointer", position: "relative", zIndex: 1 }}>
             tx: {shortHash(tx.hash)} ↗
           </a>
           <span style={{ fontSize: 10, color: t.textSub }}>{tx.timeAgo}</span>
@@ -360,6 +373,7 @@ function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolea
 
 export default function XpulseDashboard() {
   const [dark, setDark]                     = useState(true);
+  const [viewportWidth, setViewportWidth]   = useState(1440);
   const [marketData, setMarketData]         = useState<CoinData[]>(FALLBACK_MARKET);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState<number | null>(null);
   const [marketGlobal, setMarketGlobal]     = useState<MarketGlobalData | null>(null);
@@ -371,7 +385,7 @@ export default function XpulseDashboard() {
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError]     = useState<string | null>(null);
   const [insightUpdatedAt, setInsightUpdatedAt] = useState<number | null>(null);
-  const [transactions, setTransactions]     = useState<Transaction[]>(REAL_TXS);
+  const [transactions, setTransactions]     = useState<Transaction[]>([]);
   const [agentStatus, setAgentStatus]       = useState<AgentStatus | null>(null);
   const [timeline, setTimeline]             = useState<TimelineEvent[]>([]);
   const [mounted, setMounted]               = useState(false);
@@ -396,11 +410,17 @@ export default function XpulseDashboard() {
     if (saved) setDark(saved === "dark");
   }, []);
   useEffect(() => { if (mounted) localStorage.setItem("xpulse-theme", dark ? "dark" : "light"); }, [dark, mounted]);
+  useEffect(() => {
+    const updateViewport = () => setViewportWidth(window.innerWidth);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   // ── Fetch market data ───────────────────────────────────────────────────────
   const fetchMarket = useCallback(async () => {
     try {
-      const res = await fetch("/api/market");
+      const res = await fetch("/api/market", { cache: "no-store" });
       const data = await res.json() as MarketResponse | CoinData[];
 
       // Backward-compatible with the old array-only response shape.
@@ -426,7 +446,7 @@ export default function XpulseDashboard() {
     setChartLoading(true);
     try {
       const coin = COIN_IDS[activeTab] ?? COIN_IDS.btc;
-      const res = await fetch(`/api/chart?coin=${coin}`);
+      const res = await fetch(`/api/chart?coin=${coin}`, { cache: "no-store" });
       const data = await res.json() as ChartResponse;
       if (!res.ok) {
         throw new Error(data.error || `Chart request failed with status ${res.status}`);
@@ -446,7 +466,7 @@ export default function XpulseDashboard() {
   const fetchPortfolio = useCallback(async () => {
     try {
       // Call our Next.js API route — runs on server, no CORS issues
-      const res  = await fetch("/api/portfolio");
+      const res  = await fetch("/api/portfolio", { cache: "no-store" });
       const data = await res.json();
       if (data.error && !data.okb) return; // keep existing values on error
       setPortfolio({
@@ -463,54 +483,82 @@ export default function XpulseDashboard() {
   // ── Fetch real transactions from store ──────────────────────────────────────
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await fetch("/api/transactions");
+      const res = await fetch("/api/transactions", { cache: "no-store" });
       const data: Transaction[] = await res.json();
-      // If we have real transactions from store, use those; otherwise keep REAL_TXS fallback
-      if (Array.isArray(data) && data.length > 0) {
-        setTransactions(data);
-      }
-    } catch { /* keep existing */ }
+      setTransactions(Array.isArray(data) ? data : []);
+    } catch {
+      setTransactions([]);
+    }
   }, []);
 
   // ── Fetch real agent status ─────────────────────────────────────────────────
   const fetchStatus = useCallback(async () => {
     try {
-      const res  = await fetch("/api/status");
+      const res = await fetch("/api/status", { cache: "no-store" });
+      if (!res.ok) return;
       const data = await res.json() as AgentStatus;
+      if (typeof data.lastRun !== "number") return;
       setAgentStatus(data);
 
       // Build timeline events from status changes
       if (data.lastRun > 0) {
         const prev = prevStatusRef.current;
-        const time = new Date(data.lastRun).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+        const shouldResync =
+          !prev ||
+          prev.lastRun !== data.lastRun ||
+          prev.cycleCount !== data.cycleCount ||
+          timeline.length === 0;
 
-        if (!prev || prev.lastRun !== data.lastRun) {
-          // New cycle detected
-          const newEvents: TimelineEvent[] = [];
-          if (data.lastAction !== "HOLD") {
-            newEvents.push({ id: nextId.current++, time, message: `Transaction submitted — ${data.lastAction} ${data.lastAsset}`, type: "confirm" });
-            newEvents.push({ id: nextId.current++, time, message: `Executing via okx-agentic-wallet skill`, type: "trade" });
-          }
-          newEvents.push({ id: nextId.current++, time, message: `Decision: ${data.lastAction} ${data.lastAsset} — ${data.lastConfidence}% confidence`, type: "decision" });
-          newEvents.push({ id: nextId.current++, time, message: `AI insight generated via Groq LLaMA 3.3`, type: "info" });
-          newEvents.push({ id: nextId.current++, time, message: `Agent cycle #${data.cycleCount} complete`, type: "info" });
-
-          setTimeline(prev => {
-            const filteredPrev = prev.filter((event) => !newEvents.some((fresh) => fresh.type === event.type && fresh.message === event.message));
-            return [...newEvents, ...filteredPrev].slice(0, 30);
-          });
-
-          // Update insight text from latest cycle
-          if (data.lastInsight) {
-            setInsight(data.lastInsight);
-            setInsightError(null);
-            setInsightUpdatedAt(data.lastRun);
-          }
+        if (!shouldResync) {
+          prevStatusRef.current = data;
+          return;
         }
+
+        const time = new Date(data.lastRun).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+        const tx = transactions[0];
+        const events: TimelineEvent[] = [];
+
+        if (tx?.hash) {
+          events.push({
+            id: nextId.current++,
+            time,
+            message: `Transaction submitted — ${tx.from} → ${tx.to}`,
+            type: "confirm",
+          });
+        } else if (data.lastAction !== "HOLD") {
+          events.push({
+            id: nextId.current++,
+            time,
+            message: `Execution attempted — ${data.lastAction} ${data.lastAsset}`,
+            type: "trade",
+          });
+        }
+
+        if (data.lastAction !== "HOLD") {
+          events.push({ id: nextId.current++, time, message: `Executing via okx-agentic-wallet skill`, type: "trade" });
+        }
+        events.push({ id: nextId.current++, time, message: `Decision: ${data.lastAction} ${data.lastAsset} — ${data.lastConfidence}% confidence`, type: "decision" });
+        events.push({ id: nextId.current++, time, message: "AI insight generated via Groq LLaMA 3.3", type: "info" });
+        events.push({ id: nextId.current++, time, message: `Agent cycle #${data.cycleCount} complete`, type: "info" });
+
+        setTimeline(prev => {
+          const preserveManual = prev.filter((event) => {
+            const isFreshSystemEvent = events.some((fresh) => fresh.type === event.type && fresh.message === event.message);
+            return !isFreshSystemEvent;
+          });
+          return [...events, ...preserveManual].slice(0, 30);
+        });
+
+        if (data.lastInsight) {
+          setInsight(data.lastInsight);
+          setInsightError(null);
+          setInsightUpdatedAt(data.lastRun);
+        }
+
         prevStatusRef.current = data;
       }
     } catch { /* keep existing */ }
-  }, []);
+  }, [timeline.length, transactions]);
 
   const runAgent = useCallback(async () => {
     if (agentRunning) return;
@@ -518,7 +566,7 @@ export default function XpulseDashboard() {
     const now = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
     pushTimelineEvent("info", "Agent cycle triggered manually", now);
     try {
-      const res = await fetch("/api/agent", { method: "POST" });
+      const res = await fetch("/api/agent", { method: "POST", cache: "no-store" });
       const data = await res.json() as {
         success?: boolean;
         error?: string;
@@ -541,6 +589,9 @@ export default function XpulseDashboard() {
       );
 
       await Promise.all([fetchStatus(), fetchTransactions(), fetchPortfolio()]);
+      setTimeout(() => {
+        void Promise.all([fetchStatus(), fetchTransactions(), fetchPortfolio()]);
+      }, 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       const now2 = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
@@ -558,7 +609,7 @@ export default function XpulseDashboard() {
     pushTimelineEvent("info", "Generating AI insight via Groq LLaMA 3.3", now);
     try {
       const payload = snapshot ?? marketData;
-      const res  = await fetch("/api/insight", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketData: payload }) });
+      const res  = await fetch("/api/insight", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketData: payload }) });
       const data = await res.json() as InsightResponse;
       if (!res.ok) {
         throw new Error(data.error || data.insight || `Insight request failed with status ${res.status}`);
@@ -578,7 +629,6 @@ export default function XpulseDashboard() {
   // ── Initial data load ───────────────────────────────────────────────────────
   useEffect(() => { fetchMarket(); }, [fetchMarket]);
   useEffect(() => { fetchChart(); }, [fetchChart]);
-  useEffect(() => { void fetchInsight(FALLBACK_MARKET); }, []);
   useEffect(() => { fetchStatus(); fetchTransactions(); fetchPortfolio(); }, [fetchStatus, fetchTransactions, fetchPortfolio]);
 
   // ── Auto-refresh cadence ────────────────────────────────────────────────────
@@ -608,12 +658,20 @@ export default function XpulseDashboard() {
   const latestTx     = transactions[0] ?? null;
   const walletAddr   = agentStatus?.walletAddress || "0x3480690b1D9337Bb6e3ea471C7a5a84861563Bfd";
   const lastTradeAgo = agentStatus?.lastRunAgo || (latestTx ? latestTx.timeAgo : "never");
-  const isActive     = agentStatus ? (Date.now() - agentStatus.lastRun) < 20 * 60 * 1000 : true;
+  const isActive     = agentRunning || agentStatus?.isRunning || Boolean(agentStatus && agentStatus.lastRun > 0 && (Date.now() - agentStatus.lastRun) < 20 * 60 * 1000);
   const fallbackMarketCap = marketData.reduce((sum, coin) => sum + coin.market_cap, 0);
   const totalMarketCap = marketGlobal?.market_cap_usd ?? fallbackMarketCap;
   const totalMarketCapDelta = marketGlobal?.market_cap_change_percentage_24h_usd ?? 0;
   const formattedMarketCap = formatCompactUsd(totalMarketCap);
   const formattedMarketCapDelta = `${totalMarketCapDelta >= 0 ? "+" : ""}${totalMarketCapDelta.toFixed(2)}% today`;
+  const isTablet = viewportWidth <= 1180;
+  const isMobile = viewportWidth <= 768;
+  const statsGridColumns = isMobile ? "1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))";
+  const insightGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "minmax(0, 1fr) 320px";
+  const marketGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "280px minmax(0, 1fr) 300px";
+  const headerLayout = isTablet ? "column" : "row";
+  const mainPadding = isMobile ? "18px 14px 28px" : isTablet ? "24px 20px 32px" : "28px 32px";
+  const tableColumns = isMobile ? "1.4fr 76px" : "1.4fr 70px 1fr 100px 80px 80px";
 
   const cssVars = { "--card": t.card, "--card-border": t.cardBorder } as React.CSSProperties;
 
@@ -630,7 +688,7 @@ export default function XpulseDashboard() {
       `}</style>
 
       {/* ── Header ── */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 32px", background: t.headerBg, backdropFilter: "blur(24px) saturate(180%)", WebkitBackdropFilter: "blur(24px) saturate(180%)", borderBottom: `1px solid ${t.cardBorder}`, position: "sticky", top: 0, zIndex: 100 }}>
+      <header style={{ display: "flex", flexDirection: headerLayout, alignItems: isTablet ? "stretch" : "center", justifyContent: "space-between", gap: isTablet ? 12 : 0, padding: isMobile ? "12px 14px" : isTablet ? "14px 20px" : "14px 32px", background: t.headerBg, backdropFilter: "blur(24px) saturate(180%)", WebkitBackdropFilter: "blur(24px) saturate(180%)", borderBottom: `1px solid ${t.cardBorder}`, position: "sticky", top: 0, zIndex: 100 }}>
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${t.accent}, ${t.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#fff", boxShadow: `0 4px 16px ${t.accentGlow}` }}>X</div>
@@ -641,7 +699,7 @@ export default function XpulseDashboard() {
         </div>
 
         {/* Chain badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isTablet ? "flex-start" : "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, borderRadius: 20, padding: "5px 14px" }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.accent, display: "inline-block" }} />
             <span style={{ fontSize: 11, color: t.accent, fontWeight: 600 }}>Chain ID 196</span>
@@ -657,8 +715,8 @@ export default function XpulseDashboard() {
         </div>
 
         {/* Right: Agent status + theme toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: t.greenSoft, border: `1px solid ${t.greenGlow}`, borderRadius: 12, padding: "8px 16px", boxShadow: `0 0 16px ${t.greenGlow}` }}>
+        <div style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", gap: 10, flexDirection: isMobile ? "column" : "row", justifyContent: isTablet ? "space-between" : "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: t.greenSoft, border: `1px solid ${t.greenGlow}`, borderRadius: 12, padding: "8px 16px", boxShadow: `0 0 16px ${t.greenGlow}`, width: isMobile ? "100%" : "auto" }}>
             {isActive ? <PulsingDot color={t.green} /> : <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.amber, display: "inline-block" }} />}
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: isActive ? t.green : t.amber, letterSpacing: 0.5 }}>{isActive ? "AGENT ACTIVE" : "AGENT IDLE"}</div>
@@ -666,42 +724,46 @@ export default function XpulseDashboard() {
               <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>cycles completed: {agentStatus?.cycleCount ?? 0}</div>
             </div>
           </div>
-          <button
-            onClick={runAgent}
-            disabled={agentRunning}
-            style={{
-              background: agentRunning ? t.accentSoft : `linear-gradient(135deg, ${t.accent}, ${t.purple})`,
-              border: "none",
-              borderRadius: 10,
-              padding: "8px 16px",
-              cursor: agentRunning ? "not-allowed" : "pointer",
-              color: agentRunning ? t.textMuted : "#fff",
-              fontSize: 12,
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              opacity: agentRunning ? 0.7 : 1,
-              transition: "all 0.2s",
-              boxShadow: agentRunning ? "none" : `0 4px 14px ${t.accentGlow}`,
-            }}
-          >
-            <span style={{ fontSize: 14, animation: agentRunning ? "spin 1s linear infinite" : "none", display: "inline-block" }}>
-              {agentRunning ? "◌" : "▶"}
-            </span>
-            {agentRunning ? "Running..." : "Run Agent"}
-          </button>
-          <button onClick={() => setDark(d => !d)} style={{ background: dark ? "rgba(255,255,255,0.07)" : "rgba(37,99,235,0.1)", border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(37,99,235,0.2)"}`, borderRadius: 50, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: dark ? "rgba(180,190,220,0.7)" : "rgba(37,99,235,0.8)", fontSize: 12 }}>
-            <span style={{ fontSize: 14 }}>{dark ? "☀️" : "🌙"}</span>
-            <span style={{ fontWeight: 500 }}>{dark ? "Light" : "Dark"}</span>
-          </button>
+          <div style={{ display: "flex", gap: 10, width: isMobile ? "100%" : "auto" }}>
+            <button
+              onClick={runAgent}
+              disabled={agentRunning}
+              style={{
+                background: agentRunning ? t.accentSoft : `linear-gradient(135deg, ${t.accent}, ${t.purple})`,
+                border: "none",
+                borderRadius: 10,
+                padding: "8px 16px",
+                cursor: agentRunning ? "not-allowed" : "pointer",
+                color: agentRunning ? t.textMuted : "#fff",
+                fontSize: 12,
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                opacity: agentRunning ? 0.7 : 1,
+                transition: "all 0.2s",
+                boxShadow: agentRunning ? "none" : `0 4px 14px ${t.accentGlow}`,
+                flex: isMobile ? 1 : "initial",
+              }}
+            >
+              <span style={{ fontSize: 14, animation: agentRunning ? "spin 1s linear infinite" : "none", display: "inline-block" }}>
+                {agentRunning ? "◌" : "▶"}
+              </span>
+              {agentRunning ? "Running..." : "Run Agent"}
+            </button>
+            <button onClick={() => setDark(d => !d)} style={{ background: dark ? "rgba(255,255,255,0.07)" : "rgba(37,99,235,0.1)", border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(37,99,235,0.2)"}`, borderRadius: 50, padding: "7px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: dark ? "rgba(180,190,220,0.7)" : "rgba(37,99,235,0.8)", fontSize: 12, flex: isMobile ? 1 : "initial" }}>
+              <span style={{ fontSize: 14 }}>{dark ? "☀️" : "🌙"}</span>
+              <span style={{ fontWeight: 500 }}>{dark ? "Light" : "Dark"}</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <main style={{ padding: "28px 32px", maxWidth: 1440, margin: "0 auto" }}>
+      <main style={{ padding: mainPadding, maxWidth: 1440, margin: "0 auto" }}>
 
         {/* ── Stats row ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease" }}>
+        <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease" }}>
           <StatCard
             dark={dark}
             label="Total Market Cap"
@@ -751,13 +813,13 @@ export default function XpulseDashboard() {
         </div>
 
         {/* ── AI Insight + Latest TX ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.1s both" }}>
+        <div style={{ display: "grid", gridTemplateColumns: insightGridColumns, gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.1s both" }}>
           <AIInsightPanel insight={insight} loading={insightLoading} error={insightError} updatedAt={insightUpdatedAt} onRefresh={fetchInsight} dark={dark} />
           <LatestTxMonitor tx={latestTx} dark={dark} />
         </div>
 
         {/* ── Market + Chart + Timeline ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr 300px", gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
+        <div style={{ display: "grid", gridTemplateColumns: marketGridColumns, gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
           <GlassCard style={{ padding: "20px 18px" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: t.textSub, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 14 }}>Market Movers</div>
             <div style={{ fontSize: 10, color: t.textSub, marginBottom: 12 }}>{formatUpdatedAt(marketUpdatedAt)}</div>
@@ -767,12 +829,12 @@ export default function XpulseDashboard() {
           </GlassCard>
 
           <GlassCard style={{ padding: "20px 22px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0, marginBottom: 18 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Price Chart</div>
                 <div style={{ fontSize: 10, color: t.textSub, marginTop: 2 }}>24H Performance · {formatUpdatedAt(chartUpdatedAt)}</div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {["btc", "eth", "sol", "link", "okb"].map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? t.accentSoft : "transparent", border: `1px solid ${activeTab === tab ? t.accentGlow : t.cardBorder}`, color: activeTab === tab ? t.accent : t.textMuted, fontSize: 11, fontWeight: 600, padding: "5px 14px", borderRadius: 8, cursor: "pointer", transition: "all 0.2s" }}>{tab.toUpperCase()}</button>
                 ))}
@@ -817,23 +879,32 @@ export default function XpulseDashboard() {
               </div>
             </div>
             {/* Header row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 70px 1fr 100px 80px 80px", gap: 10, padding: "10px 18px", fontSize: 10, fontWeight: 600, color: t.textSub, letterSpacing: 1, textTransform: "uppercase", borderBottom: `1px solid ${t.cardBorder}` }}>
-              <span>TX Hash</span><span>Skill</span><span>Route</span><span>Amount</span><span>Status</span><span>Time</span>
+            <div style={{ display: "grid", gridTemplateColumns: tableColumns, gap: 10, padding: "10px 18px", fontSize: 10, fontWeight: 600, color: t.textSub, letterSpacing: 1, textTransform: "uppercase", borderBottom: `1px solid ${t.cardBorder}` }}>
+              {isMobile ? (
+                <>
+                  <span>TX Hash</span>
+                  <span style={{ textAlign: "right" as const }}>Status</span>
+                </>
+              ) : (
+                <>
+                  <span>TX Hash</span><span>Skill</span><span>Route</span><span>Amount</span><span>Status</span><span>Time</span>
+                </>
+              )}
             </div>
             {transactions.length === 0 ? (
               <div style={{ padding: "32px", textAlign: "center" as const, fontSize: 12, color: t.textMuted }}>
                 No transactions yet. Run the agent to see real onchain activity.
               </div>
             ) : (
-              transactions.map((tx, i) => <TxRow key={tx.hash} tx={tx} dark={dark} isLatest={i === 0} />)
+              transactions.map((tx, i) => <TxRow key={tx.hash} tx={tx} dark={dark} isLatest={i === 0} compact={isMobile} />)
             )}
           </GlassCard>
         </div>
 
         {/* ── Footer with Wallet Address ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 28, animation: "fadeUp 0.5s ease 0.4s both" }}>
+        <div style={{ display: "flex", flexDirection: isTablet ? "column" : "row", alignItems: isTablet ? "stretch" : "center", justifyContent: "space-between", gap: 14, marginTop: 28, animation: "fadeUp 0.5s ease 0.4s both" }}>
           {/* Agent wallet */}
-          <GlassCard style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+          <GlassCard style={{ padding: "12px 18px", display: "flex", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: 14 }}>
             <div>
               <div style={{ fontSize: 10, color: t.textSub, letterSpacing: 1, textTransform: "uppercase", marginBottom: 3 }}>Agent Wallet</div>
               <div style={{ fontSize: 12, fontFamily: "monospace", color: t.text, fontWeight: 500 }}>{shortAddr(walletAddr)}</div>
@@ -849,7 +920,7 @@ export default function XpulseDashboard() {
           </GlassCard>
 
           {/* Footer credit */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: isTablet ? "center" : "flex-start", gap: 10 }}>
             <a
               href="https://x.com/Ritesh5969"
               target="_blank"
@@ -868,7 +939,7 @@ export default function XpulseDashboard() {
           </div>
 
           {/* Last refresh indicator */}
-          <div style={{ fontSize: 10, color: t.textSub, textAlign: "right" as const }}>
+          <div style={{ fontSize: 10, color: t.textSub, textAlign: isTablet ? "left" as const : "right" as const }}>
             <div>Refreshes every 5s</div>
             {agentStatus?.lastRun ? <div>Last agent run: {agentStatus.lastRunAgo}</div> : null}
           </div>
