@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 // This route triggers one full agent cycle with the same real execution path
 // used by the CLI runner.
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {

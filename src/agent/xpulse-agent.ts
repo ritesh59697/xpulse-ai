@@ -80,6 +80,15 @@ const CONFIG = {
   SELL_THRESHOLD: -4,
 };
 
+export const QUANT_RULES = {
+  minConfidence: CONFIG.MIN_CONFIDENCE,
+  buyThreshold: CONFIG.BUY_THRESHOLD,
+  sellThreshold: CONFIG.SELL_THRESHOLD,
+  neutralBand: 1,
+  maxTradeOkb: CONFIG.MAX_TRADE_OKB,
+  gasBufferOkb: 0.001,
+} as const;
+
 // ─── X Layer token addresses (mainnet = testnet same for OKB/WOKB) ────────────
 
 const TOKENS: Record<string, string> = {
@@ -540,9 +549,12 @@ export async function runAgentCycle(): Promise<AgentCycleResult> {
       lastAsset:      decision.asset,
       lastConfidence: decision.confidence,
       lastInsight:    aiSummary,
+      lastReason:     decision.reason,
       walletAddress:  walletAddress ?? prevStatus.walletAddress,
       cycleCount:     prevStatus.cycleCount + 1,
       isRunning:      false,
+      lastTxHash:     txHash ?? "",
+      lastExecution:  txHash ? "executed" : "skipped",
     });
 
     console.log("\n✅ Cycle complete\n");

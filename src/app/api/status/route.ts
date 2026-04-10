@@ -18,9 +18,12 @@ export async function GET() {
       lastAsset:      status.lastAsset,
       lastConfidence: status.lastConfidence,
       lastInsight:    status.lastInsight,
+      lastReason:     status.lastReason,
       walletAddress:  status.walletAddress,
       cycleCount:     status.cycleCount,
       isRunning:      status.isRunning,
+      lastTxHash:     status.lastTxHash,
+      lastExecution:  status.lastExecution,
     });
   } catch {
     return NextResponse.json({ error: "Could not read agent status" }, { status: 500 });

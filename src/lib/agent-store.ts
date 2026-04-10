@@ -16,9 +16,12 @@ export interface AgentStatus {
   lastAsset:     string;        // "OKB" | "ETH" etc
   lastConfidence: number;       // 0-100
   lastInsight:   string;        // AI summary text
+  lastReason:    string;        // quant rule trace for the latest cycle
   walletAddress: string;        // agent wallet 0x...
   cycleCount:    number;        // total cycles run
   isRunning:     boolean;       // true while a cycle is executing
+  lastTxHash:    string;        // tx hash for the latest cycle, if any
+  lastExecution: string;        // "executed" | "skipped"
 }
 
 export interface StoredTransaction {
@@ -103,9 +106,12 @@ const DEFAULT_STATUS: AgentStatus = {
   lastAsset:      "OKB",
   lastConfidence: 0,
   lastInsight:    "",
+  lastReason:     "",
   walletAddress:  "",
   cycleCount:     0,
   isRunning:      false,
+  lastTxHash:     "",
+  lastExecution:  "skipped",
 };
 
 export async function readAgentStatus(): Promise<AgentStatus> {

@@ -126,12 +126,14 @@ Xpulse AI is not just a dashboard or a market tracker. It is a working agent tha
 | 🤖 Autonomous AI Agent | Full trading cycle with no human input required |
 | 🧠 AI Market Analysis | Groq LLaMA 3.3 70B generates insights and trading signals |
 | ⚙️ Quant Risk Layer | Numeric safety rules validate every decision before execution |
+| 🧾 Explainable Rule Trace | Cycle Result panel shows AI suggestion, confidence gate, momentum rule, and final execution outcome |
 | 🔗 Onchain Execution | Real trades via Onchain OS Skills on X Layer Mainnet |
 | 👛 Agentic Wallet | `okx-agentic-wallet` signs and submits transactions autonomously |
 | 📊 Live Dashboard | Glassmorphism UI — dark/light mode, auto-refresh every 5 seconds |
 | 💼 Portfolio Tracking | Live OKB and WOKB balances with USD value |
 | 📋 Activity History | Last 10 onchain transactions with clickable explorer links |
 | ⏱ AI Reasoning Timeline | Timestamped log of every agent decision and action |
+| 📈 Polished Price Chart | Trend-aware chart header with latest price, 24H range, and stronger tooltip feedback |
 | 🔁 Execution Modes | Supports local CLI execution and production-safe manual triggering via the dashboard Run Agent button |
 
 ---
@@ -159,7 +161,7 @@ The AI generates a trading signal, but that signal only reaches the blockchain i
 │   Agent Status · AI Insights · Portfolio · TX History         │
 └──────────────────────────────────────────────────────────────┘
          ▲                                         │
-         └────── Cron / Loop (every 15 min) ───────┘
+         └──── Dashboard Trigger / Local CLI ──────┘
 ```
 
 ---
@@ -267,11 +269,12 @@ Between the AI decision and onchain execution sits a safety layer that applies n
 | Rule | Threshold | Action if Failed |
 |---|---|---|
 | **Confidence Threshold** | AI confidence < 60% | HOLD — signal too weak to trade |
-| **Momentum Check** | 24h price change < 3% on a BUY signal | Downgrade to HOLD |
+| **BUY Momentum Check** | 24h price change ≤ 5% on a BUY signal | Downgrade to HOLD |
+| **SELL Momentum Check** | 24h price change ≥ -4% on a SELL signal | Downgrade to HOLD |
+| **Neutral Band** | \|24h move\| < 1% | HOLD — price action too flat |
 | **Balance Safety** | Wallet OKB < trade amount + 0.001 gas buffer | HOLD — insufficient funds |
 | **Trade Size Cap** | Any amount > 0.001 OKB | Hard capped to 0.001 OKB |
 | **Network Verify** | RPC returns wrong chain ID | Abort — prevents wrong-network trades |
-| **Volatility Guard** | High volatility + confidence < 70% | Trade skipped or size reduced |
 
 This layer exists because raw AI output is probabilistic, not deterministic. By adding numeric constraints, the agent avoids acting on uncertain signals and protects against common failure modes like low-confidence noise or insufficient balance.
 
@@ -358,10 +361,12 @@ The dashboard is built with Next.js and styled with a glassmorphism design. It r
 
 - **Agent Status** — live indicator showing whether the agent is active or idle, last run time, and total cycles completed
 - **AI Suggestion Panel** — latest Groq market suggestion with BUY / SELL / HOLD output, displayed separately from executed trades
+- **Cycle Result Card** — explainable rule trace showing AI suggestion, confidence gate, momentum rule result, and final executed/skipped outcome
 - **Portfolio Card** — real-time OKB and WOKB balances with USD value, fetched server-side
 - **Last Executed Trade Card** — most recent confirmed onchain transaction with route, amount, and clickable explorer link
 - **Onchain Activity Table** — latest confirmed agent transactions with hash, type, route, status, and timestamp
 - **AI Reasoning Timeline** — timeline reconstructed from stored agent cycles and execution events
+- **Price Chart Panel** — trend-aware 24H chart with latest price, range, colored direction, and stronger tooltip feedback
 - **Run Agent Button** — triggers a full production-safe agent cycle through `/api/agent`
 
 
@@ -482,6 +487,7 @@ OKX_PROJECT_ID=your_project_id
 
 # ── Optional ─────────────────────────────────────────────────
 # COINGECKO_API_KEY=CG-...
+# COINGECKO_API_KEY_TYPE=demo
 ```
 
 ---
@@ -500,6 +506,7 @@ xpulse-ai/
 │   │   ├── page.tsx                  ← Glassmorphism dashboard
 │   │   └── api/
 │   │       ├── market/route.ts       ← CoinGecko market data proxy
+│   │       ├── chart/route.ts        ← 24H chart data endpoint
 │   │       ├── insight/route.ts      ← Groq AI insight endpoint
 │   │       ├── agent/route.ts        ← Agent cycle trigger endpoint
 │   │       ├── status/route.ts       ← Real-time agent status
@@ -508,6 +515,7 @@ xpulse-ai/
 │   ├── agent/
 │   │   └── xpulse-agent.ts           ← Core agent logic ⭐
 │   └── lib/
+│       ├── coingecko.ts              ← Demo/pro CoinGecko header helper
 │       ├── xlayer.ts                 ← Network-aware X Layer helpers
 │       └── agent-store.ts            ← KV-backed persistence with local JSON fallback
 ├── scripts/

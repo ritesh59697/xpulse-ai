@@ -33,7 +33,9 @@ interface AgentStatus {
   lastRun: number; lastRunAgo: string;
   lastAction: string; lastAsset: string;
   lastConfidence: number; lastInsight: string;
+  lastReason: string;
   walletAddress: string; cycleCount: number; isRunning: boolean;
+  lastTxHash: string; lastExecution: "executed" | "skipped";
 }
 
 interface TimelineEvent {
@@ -68,7 +70,7 @@ const FALLBACK_MARKET: CoinData[] = [
 
 const FALLBACK_CHART: ChartPoint[] = Array.from({ length: 24 }, (_, i) => ({
   time: `${String(i).padStart(2, "0")}:00`,
-  price: 67000 + Math.sin(i * 0.4) * 1200 + Math.random() * 400,
+  price: 67000 + Math.sin(i * 0.4) * 1200 + Math.cos(i * 0.7) * 220,
 }));
 
 const COIN_IDS: Record<string, string> = {
@@ -105,6 +107,27 @@ function formatCompactUsd(value: number) {
   }).format(value);
 }
 
+function formatPriceLabel(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: value >= 1000 ? 0 : 2,
+  }).format(value);
+}
+
+function extractSuggestedAction(insight: string) {
+  const match = insight.match(/ACTION:\s*(BUY|SELL|HOLD|SWAP)\s+([A-Z]+)/i);
+  return {
+    action: match?.[1]?.toUpperCase() ?? "HOLD",
+    asset: match?.[2]?.toUpperCase() ?? "OKB",
+  };
+}
+
+function extractChangeFromReason(reason: string) {
+  const match = reason.match(/24h:\s*(-?\d+(?:\.\d+)?)%/i);
+  return match ? Number(match[1]) : null;
+}
+
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
 const DARK = {
@@ -122,7 +145,7 @@ const DARK = {
 const LIGHT = {
   bg: "radial-gradient(ellipse at 20% 20%, #f0f4ff 0%, #e8edf8 40%, #dde4f5 100%)",
   card: "rgba(255,255,255,0.65)", cardBorder: "rgba(100,130,200,0.15)",
-  text: "#1a2340", textMuted: "rgba(40,60,120,0.55)", textSub: "rgba(40,60,120,0.35)",
+  text: "#1a2340", textMuted: "rgba(26,35,64,0.72)", textSub: "rgba(26,35,64,0.58)",
   accent: "#2563eb", accentGlow: "rgba(37,99,235,0.2)", accentSoft: "rgba(37,99,235,0.08)",
   purple: "#7c3aed", purpleGlow: "rgba(124,58,237,0.2)", purpleSoft: "rgba(124,58,237,0.07)",
   green: "#059669", greenGlow: "rgba(5,150,105,0.2)", greenSoft: "rgba(5,150,105,0.07)",
@@ -241,32 +264,32 @@ function TxRow({ tx, dark, isLatest, compact = false }: { tx: Transaction; dark:
 function LatestTxMonitor({ tx, dark }: { tx: Transaction | null; dark: boolean }) {
   const t = dark ? DARK : LIGHT;
   if (!tx) return (
-    <GlassCard style={{ padding: "18px 22px" }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: t.textSub, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 }}>Last Executed Trade</div>
-      <div style={{ fontSize: 12, color: t.textMuted, padding: "20px", textAlign: "center" as const }}>No transactions yet</div>
+    <GlassCard style={{ padding: "20px 22px" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: t.textSub, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 14 }}>Last Executed Trade</div>
+      <div style={{ fontSize: 13, color: t.textMuted, padding: "24px 20px", textAlign: "center" as const }}>No transactions yet</div>
     </GlassCard>
   );
   return (
-    <GlassCard style={{ padding: "18px 22px" }}>
+    <GlassCard style={{ padding: "20px 22px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <PulsingDot color={t.green} />
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: t.textSub, letterSpacing: 1, textTransform: "uppercase" }}>Last Executed Trade</div>
-            <div style={{ fontSize: 10, color: t.textSub, marginTop: 3 }}>Confirmed onchain action from the latest completed cycle</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: t.textSub, letterSpacing: 1.1, textTransform: "uppercase" }}>Last Executed Trade</div>
+            <div style={{ fontSize: 10.5, color: t.textSub, marginTop: 3, lineHeight: 1.45 }}>Confirmed onchain action from the latest completed cycle</div>
           </div>
         </div>
         <span style={{ fontSize: 10, color: t.green, background: t.greenSoft, border: `1px solid ${t.greenGlow}`, padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>CONFIRMED</span>
       </div>
-      <div style={{ padding: "14px 16px", borderRadius: 12, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, boxShadow: `0 0 20px ${t.accentGlow}` }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 4 }}>{tx.type} {tx.from} → {tx.to}</div>
-        <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 10 }}>amount: {tx.amount}</div>
+      <div style={{ padding: "16px 16px", borderRadius: 12, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, boxShadow: `0 0 20px ${t.accentGlow}` }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: t.text, marginBottom: 6 }}>{tx.type} {tx.from} → {tx.to}</div>
+        <div style={{ fontSize: 12.5, color: t.textMuted, marginBottom: 12 }}>amount: {tx.amount}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <a href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 11, color: t.accent, fontFamily: "monospace", textDecoration: "none", fontWeight: 600, borderBottom: `1px solid ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", cursor: "pointer", position: "relative", zIndex: 1 }}>
+            style={{ fontSize: 11.5, color: t.accent, fontFamily: "monospace", textDecoration: "none", fontWeight: 600, borderBottom: `1px solid ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", cursor: "pointer", position: "relative", zIndex: 1 }}>
             tx: {shortHash(tx.hash)} ↗
           </a>
-          <span style={{ fontSize: 10, color: t.textSub }}>{tx.timeAgo}</span>
+          <span style={{ fontSize: 10.5, color: t.textSub }}>{tx.timeAgo}</span>
         </div>
       </div>
     </GlassCard>
@@ -296,32 +319,34 @@ function AIInsightPanel({
   const confidence      = confidenceMatch ? parseInt(confidenceMatch[1]) : null;
   const statusLabel = loading ? "Refreshing" : error ? "Needs attention" : "Live";
   const statusColor = loading ? t.accent : error ? t.red : t.green;
+  const visibleInsight = insight || "Awaiting market data...";
+  const contentBoxHeight = 142;
 
   return (
-    <GlassCard style={{ padding: "22px 26px", position: "relative", overflow: "hidden" }}>
+    <GlassCard style={{ padding: "28px 30px", position: "relative", overflow: "hidden", alignSelf: "start", minHeight: 204 }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, ${t.purple}, transparent)` }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${t.accent}, ${t.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: `0 0 12px ${t.accentGlow}` }}>🧠</div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>AI Suggestion</div>
-            <div style={{ fontSize: 10, color: t.textSub, marginTop: 1 }}>Groq LLaMA 3.3 · okx-dex-market skill · analysis only</div>
-            <div style={{ fontSize: 10, color: t.textSub, marginTop: 3 }}>{formatUpdatedAt(updatedAt)}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>AI Suggestion</div>
+            <div style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>Groq LLaMA 3.3 · okx-dex-market skill · analysis only</div>
+            <div style={{ fontSize: 11, color: t.textSub, marginTop: 3 }}>{formatUpdatedAt(updatedAt)}</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ padding: "5px 12px", borderRadius: 999, background: `${statusColor}12`, border: `1px solid ${statusColor}35`, fontSize: 11, fontWeight: 700, color: statusColor }}>
+          <div style={{ padding: "6px 13px", borderRadius: 999, background: `${statusColor}12`, border: `1px solid ${statusColor}35`, fontSize: 12, fontWeight: 700, color: statusColor }}>
             {statusLabel}
           </div>
           {action && !loading && (
-            <div style={{ padding: "5px 14px", borderRadius: 8, background: `${actionColor}15`, border: `1px solid ${actionColor}40`, fontSize: 12, fontWeight: 700, color: actionColor, boxShadow: `0 0 10px ${actionColor}30` }}>
+            <div style={{ padding: "7px 15px", borderRadius: 8, background: `${actionColor}15`, border: `1px solid ${actionColor}40`, fontSize: 13, fontWeight: 700, color: actionColor, boxShadow: `0 0 10px ${actionColor}30` }}>
               {action === "BUY" ? "📈" : action === "SELL" ? "📉" : "⏸"} {action}
             </div>
           )}
           {confidence !== null && !loading && (
-            <div style={{ padding: "5px 14px", borderRadius: 8, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, fontSize: 12, fontWeight: 600, color: t.accent }}>{confidence}% confidence</div>
+            <div style={{ padding: "7px 15px", borderRadius: 8, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, fontSize: 13, fontWeight: 600, color: t.accent }}>{confidence}% confidence</div>
           )}
-          <button onClick={() => onRefresh()} style={{ background: t.accentSoft, border: `1px solid ${t.accentGlow}`, color: t.accent, fontSize: 12, padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 500 }}>↻ Refresh Analysis</button>
+          <button onClick={() => onRefresh()} style={{ background: t.accentSoft, border: `1px solid ${t.accentGlow}`, color: t.accent, fontSize: 13, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>↻ Refresh Analysis</button>
         </div>
       </div>
       {error && (
@@ -329,13 +354,177 @@ function AIInsightPanel({
           {error}
         </div>
       )}
-      <div style={{ fontSize: 10, color: t.textSub, marginBottom: 10 }}>
+      <div style={{ fontSize: 11.5, color: t.textSub, marginBottom: 13 }}>
         Refreshing this panel updates the market suggestion only. Executed trades are shown separately in Last Executed Trade.
       </div>
-      <div style={{ fontSize: 13, lineHeight: 1.9, color: loading ? t.textMuted : t.text, minHeight: 72, whiteSpace: "pre-wrap", padding: "14px 16px", borderRadius: 10, background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", border: `1px solid ${t.cardBorder}` }}>
-        {loading
-          ? <div style={{ display: "flex", alignItems: "center", gap: 8, color: t.textMuted }}><span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>◌</span> Analyzing market vectors...</div>
-          : insight || "Awaiting market data..."}
+      <div style={{ position: "relative", fontSize: 14.5, lineHeight: 1.95, color: t.text, whiteSpace: "pre-wrap", padding: "17px 18px", borderRadius: 10, background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", border: `1px solid ${t.cardBorder}`, minHeight: contentBoxHeight }}>
+        <div style={{ maxHeight: contentBoxHeight - 10, overflowY: "auto", paddingRight: 4 }}>
+          {visibleInsight}
+        </div>
+        {loading && (
+          <div style={{ position: "absolute", inset: 0, borderRadius: 10, background: dark ? "rgba(5,8,16,0.18)" : "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: t.accent, fontSize: 12, fontWeight: 600, padding: "8px 12px", borderRadius: 999, background: dark ? "rgba(10,14,26,0.9)" : "rgba(255,255,255,0.92)", border: `1px solid ${t.accentGlow}`, boxShadow: `0 6px 18px ${t.accentGlow}` }}>
+              <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>◌</span>
+              Refreshing analysis...
+            </div>
+          </div>
+        )}
+      </div>
+    </GlassCard>
+  );
+}
+
+function QuantRuleCard({ dark }: { dark: boolean }) {
+  const t = dark ? DARK : LIGHT;
+  const rules = [
+    { label: "Min confidence", value: "60% to execute" },
+    { label: "BUY threshold", value: "> 5% 24h change" },
+    { label: "SELL threshold", value: "< -4% 24h change" },
+    { label: "Neutral band", value: "|24h| < 1% => HOLD" },
+    { label: "Trade cap", value: "0.001 OKB max" },
+    { label: "Gas buffer", value: "0.001 OKB minimum extra" },
+  ];
+
+  return (
+    <GlassCard style={{ padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16, paddingBottom: 7, borderBottom: `2px solid ${t.accentGlow}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: t.text, letterSpacing: 0.35, fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif" }}>
+          Quant Rules
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {rules.map((rule) => (
+          <div
+            key={rule.label}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              padding: "1px 0",
+            }}
+          >
+            <span style={{ fontSize: 12.5, color: t.textMuted, fontWeight: 600 }}>{rule.label}</span>
+            <span style={{ fontSize: 12.5, color: t.text, fontWeight: 700, textAlign: "right" as const }}>{rule.value}</span>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
+  );
+}
+
+function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: boolean }) {
+  const t = dark ? DARK : LIGHT;
+
+  if (!status || !status.lastRun) {
+    return (
+      <GlassCard style={{ padding: "18px 20px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: t.text, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 10 }}>
+          Cycle Result
+        </div>
+        <div style={{ fontSize: 12, color: t.textMuted }}>Run the agent once to see the latest rule trace.</div>
+      </GlassCard>
+    );
+  }
+
+  const suggested = extractSuggestedAction(status.lastInsight);
+  const move = extractChangeFromReason(status.lastReason);
+  const confidencePass = status.lastConfidence >= 60;
+  const movePass =
+    move === null
+      ? null
+      : suggested.action === "BUY"
+        ? move > 5
+        : suggested.action === "SELL"
+          ? move < -4
+          : Math.abs(move) < 1;
+
+  const rows = [
+    {
+      label: "AI suggested",
+      value: `${suggested.action} ${suggested.asset}`,
+      tone: t.accent,
+      bg: t.accentSoft,
+    },
+    {
+      label: "Confidence gate",
+      value: `${status.lastConfidence}% ${confidencePass ? "passed" : "blocked"}`,
+      tone: confidencePass ? t.green : t.red,
+      bg: confidencePass ? t.greenSoft : t.redSoft,
+    },
+    {
+      label: "Momentum rule",
+      value:
+        move === null
+          ? "Using latest rule output"
+          : `${move >= 0 ? "+" : ""}${move.toFixed(2)}% ${movePass ? "qualified" : "held back"}`,
+      tone: movePass === null ? t.textMuted : movePass ? t.green : t.amber,
+      bg: movePass === null ? (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)") : movePass ? t.greenSoft : "rgba(251,191,36,0.08)",
+    },
+    {
+      label: "Final result",
+      value: status.lastExecution === "executed" ? `${status.lastAction} executed` : `${status.lastAction} skipped`,
+      tone: status.lastExecution === "executed" ? t.green : t.text,
+      bg: status.lastExecution === "executed" ? t.greenSoft : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+    },
+  ];
+
+  return (
+    <GlassCard style={{ padding: "24px 26px", minHeight: 356, display: "flex", flexDirection: "column", flex: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.text, letterSpacing: 1.2, textTransform: "uppercase" }}>Cycle Result</div>
+          <div style={{ fontSize: 11, color: t.textSub, marginTop: 3 }}>Latest rule trace for the most recent agent cycle</div>
+        </div>
+        <div style={{ fontSize: 10, color: t.accent, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, padding: "4px 10px", borderRadius: 999, fontWeight: 700 }}>
+          #{status.cycleCount}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 11 }}>
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "110px minmax(0, 1fr)",
+              gap: 12,
+              alignItems: "center",
+              padding: "13px 14px",
+              borderRadius: 12,
+              background: row.bg,
+              border: `1px solid ${t.cardBorder}`,
+            }}
+          >
+            <div style={{ fontSize: 11, color: t.textSub, textTransform: "uppercase", letterSpacing: 1 }}>{row.label}</div>
+            <div style={{ fontSize: 13.5, color: row.tone, fontWeight: 700 }}>{row.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 15, fontSize: 12.5, color: t.textMuted, lineHeight: 1.7 }}>
+        {status.lastReason || "Rule trace unavailable for this cycle."}
+      </div>
+
+      <div style={{ marginTop: 18, paddingTop: 0, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+        <div style={{ padding: "12px 13px", borderRadius: 12, background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: `1px solid ${t.cardBorder}` }}>
+          <div style={{ fontSize: 9, color: t.textSub, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Execution</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: status.lastExecution === "executed" ? t.green : t.text }}>
+            {status.lastExecution === "executed" ? "Executed" : "Skipped"}
+          </div>
+        </div>
+        <div style={{ padding: "12px 13px", borderRadius: 12, background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: `1px solid ${t.cardBorder}` }}>
+          <div style={{ fontSize: 9, color: t.textSub, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Tx State</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: status.lastTxHash ? t.accent : t.text }}>
+            {status.lastTxHash ? shortHash(status.lastTxHash) : "No tx"}
+          </div>
+        </div>
+        <div style={{ padding: "12px 13px", borderRadius: 12, background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: `1px solid ${t.cardBorder}` }}>
+          <div style={{ fontSize: 9, color: t.textSub, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Updated</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: t.text }}>
+            {new Date(status.lastRun).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
+          </div>
+        </div>
       </div>
     </GlassCard>
   );
@@ -350,22 +539,56 @@ function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolea
     info:     { color: t.textMuted, icon: "·", bg: "transparent" },
   };
   return (
-    <GlassCard style={{ padding: "20px 22px" }}>
+    <GlassCard style={{ padding: "18px 20px" }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: t.textSub, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16 }}>AI Reasoning Timeline</div>
-      <div style={{ maxHeight: 260, overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ maxHeight: 190, overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", gap: 2 }}>
         {events.length === 0 && <div style={{ fontSize: 12, color: t.textMuted, padding: "20px", textAlign: "center" as const }}>Waiting for agent cycle...</div>}
         {events.map((ev, i) => {
           const c = cfg[ev.type];
           return (
-            <div key={ev.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px", borderRadius: 8, background: i === 0 ? c.bg : "transparent", border: `1px solid ${i === 0 ? c.color + "30" : "transparent"}`, animation: i === 0 ? "slideIn 0.3s ease" : "none" }}>
+            <div key={ev.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 9px", borderRadius: 8, background: i === 0 ? c.bg : "transparent", border: `1px solid ${i === 0 ? c.color + "30" : "transparent"}`, animation: i === 0 ? "slideIn 0.3s ease" : "none" }}>
               <span style={{ fontSize: 11, color: t.textSub, fontFamily: "monospace", flexShrink: 0, marginTop: 1 }}>{ev.time}</span>
               <span style={{ width: 16, height: 16, borderRadius: "50%", background: c.bg, border: `1px solid ${c.color}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: c.color, flexShrink: 0 }}>{c.icon}</span>
-              <span style={{ fontSize: 12, color: i === 0 ? t.text : t.textMuted, flex: 1, fontWeight: i === 0 ? 500 : 400 }}>{ev.message}</span>
+              <span style={{ fontSize: 11, lineHeight: 1.45, color: i === 0 ? t.text : t.textMuted, flex: 1, fontWeight: i === 0 ? 500 : 400 }}>{ev.message}</span>
             </div>
           );
         })}
       </div>
     </GlassCard>
+  );
+}
+
+function ChartTooltipCard({
+  active,
+  payload,
+  label,
+  dark,
+  changeText,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+  dark: boolean;
+  changeText: string;
+}) {
+  const t = dark ? DARK : LIGHT;
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div
+      style={{
+        background: t.tooltipBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 12,
+        padding: "10px 12px",
+        boxShadow: `0 12px 30px ${dark ? "rgba(0,0,0,0.28)" : "rgba(37,99,235,0.14)"}`,
+        minWidth: 132,
+      }}
+    >
+      <div style={{ fontSize: 10, color: t.textSub, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 15, color: t.text, fontWeight: 700 }}>{formatPriceLabel(payload[0].value)}</div>
+      <div style={{ fontSize: 11, color: changeText.startsWith("-") ? t.red : t.green, marginTop: 4, fontWeight: 600 }}>{changeText} today</div>
+    </div>
   );
 }
 
@@ -519,14 +742,13 @@ export default function XpulseDashboard() {
         }
 
         const time = new Date(data.lastRun).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
-        const tx = transactions[0];
         const events: TimelineEvent[] = [];
 
-        if (tx?.hash) {
+        if (data.lastTxHash) {
           events.push({
             id: nextId.current++,
             time,
-            message: `Transaction submitted — ${tx.from} → ${tx.to}`,
+            message: `Transaction submitted — ${data.lastAsset === "OKB" ? "OKB → WOKB" : `${data.lastAction} ${data.lastAsset}`}`,
             type: "confirm",
           });
         } else if (data.lastAction !== "HOLD") {
@@ -538,7 +760,7 @@ export default function XpulseDashboard() {
           });
         }
 
-        if (data.lastAction !== "HOLD") {
+        if (data.lastAction !== "HOLD" && data.lastExecution === "executed") {
           events.push({ id: nextId.current++, time, message: `Executing via okx-agentic-wallet skill`, type: "trade" });
         }
         events.push({ id: nextId.current++, time, message: `Decision: ${data.lastAction} ${data.lastAsset} — ${data.lastConfidence}% confidence`, type: "decision" });
@@ -562,7 +784,7 @@ export default function XpulseDashboard() {
         prevStatusRef.current = data;
       }
     } catch { /* keep existing */ }
-  }, [timeline.length, transactions]);
+  }, [timeline.length]);
 
   const runAgent = useCallback(async () => {
     if (agentRunning) return;
@@ -672,12 +894,23 @@ export default function XpulseDashboard() {
   const isMobile = viewportWidth <= 768;
   const statsGridColumns = isMobile ? "1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))";
   const insightGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "minmax(0, 1fr) 320px";
-  const marketGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "280px minmax(0, 1fr) 300px";
+  const marketGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "280px minmax(0, 1fr)";
   const headerLayout = isTablet ? "column" : "row";
   const mainPadding = isMobile ? "18px 14px 28px" : isTablet ? "24px 20px 32px" : "28px 32px";
   const tableColumns = isMobile ? "1.4fr 76px" : "1.4fr 70px 1fr 100px 80px 80px";
   const headerBlur = isMobile ? "blur(14px) saturate(145%)" : "blur(24px) saturate(180%)";
   const pageTransition = isMobile ? "background 0.25s ease" : "background 0.5s ease";
+  const selectedCoin = marketData.find((coin) => coin.symbol === activeTab) ?? marketData[0];
+  const latestChartPoint = chartData[chartData.length - 1] ?? null;
+  const chartPrices = chartData.map((point) => point.price);
+  const chartHigh = chartPrices.length ? Math.max(...chartPrices) : 0;
+  const chartLow = chartPrices.length ? Math.min(...chartPrices) : 0;
+  const chartTrendUp = (selectedCoin?.price_change_percentage_24h ?? 0) >= 0;
+  const chartStroke = chartTrendUp ? t.green : t.red;
+  const chartFillTop = chartTrendUp ? "rgba(5,150,105,0.24)" : "rgba(220,38,38,0.2)";
+  const chartFillBottom = chartTrendUp ? "rgba(5,150,105,0.02)" : "rgba(220,38,38,0.02)";
+  const chartDeltaText = `${chartTrendUp ? "+" : ""}${(selectedCoin?.price_change_percentage_24h ?? 0).toFixed(2)}%`;
+  const chartRangeText = chartHigh && chartLow ? `${formatPriceLabel(chartLow)} - ${formatPriceLabel(chartHigh)}` : "Waiting for range";
 
   const cssVars = { "--card": t.card, "--card-border": t.cardBorder } as React.CSSProperties;
 
@@ -820,9 +1053,16 @@ export default function XpulseDashboard() {
         </div>
 
         {/* ── AI Insight + Latest TX ── */}
-        <div style={{ display: "grid", gridTemplateColumns: insightGridColumns, gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.1s both" }}>
-          <AIInsightPanel insight={insight} loading={insightLoading} error={insightError} updatedAt={insightUpdatedAt} onRefresh={fetchInsight} dark={dark} />
-          <LatestTxMonitor tx={latestTx} dark={dark} />
+        <div style={{ display: "grid", gridTemplateColumns: insightGridColumns, alignItems: "stretch", gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.1s both" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: "100%", height: "100%" }}>
+            <AIInsightPanel insight={insight} loading={insightLoading} error={insightError} updatedAt={insightUpdatedAt} onRefresh={fetchInsight} dark={dark} />
+            <CycleTraceCard status={agentStatus} dark={dark} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: "100%" }}>
+            <TimelinePanel events={timeline} dark={dark} />
+            <QuantRuleCard dark={dark} />
+            <LatestTxMonitor tx={latestTx} dark={dark} />
+          </div>
         </div>
 
         {/* ── Market + Chart + Timeline ── */}
@@ -838,12 +1078,46 @@ export default function XpulseDashboard() {
           <GlassCard style={{ padding: "20px 22px" }}>
             <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0, marginBottom: 18 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Price Chart</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 3 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Price Chart</div>
+                  {selectedCoin && (
+                    <div style={{ padding: "4px 10px", borderRadius: 999, background: chartTrendUp ? t.greenSoft : t.redSoft, border: `1px solid ${chartTrendUp ? t.greenGlow : `${t.red}33`}`, fontSize: 11, fontWeight: 700, color: chartTrendUp ? t.green : t.red }}>
+                      {selectedCoin.symbol.toUpperCase()} {chartDeltaText}
+                    </div>
+                  )}
+                </div>
                 <div style={{ fontSize: 10, color: t.textSub, marginTop: 2 }}>24H Performance · {formatUpdatedAt(chartUpdatedAt)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: t.textSub, textTransform: "uppercase", letterSpacing: 1 }}>Latest</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: -0.5 }}>{formatPriceLabel(latestChartPoint?.price ?? selectedCoin?.current_price ?? 0)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: t.textSub, textTransform: "uppercase", letterSpacing: 1 }}>24H Range</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{chartRangeText}</div>
+                  </div>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {["btc", "eth", "sol", "link", "okb"].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? t.accentSoft : "transparent", border: `1px solid ${activeTab === tab ? t.accentGlow : t.cardBorder}`, color: activeTab === tab ? t.accent : t.textMuted, fontSize: 11, fontWeight: 600, padding: "5px 14px", borderRadius: 8, cursor: "pointer", transition: "all 0.2s" }}>{tab.toUpperCase()}</button>
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    style={{
+                      background: activeTab === tab ? (chartTrendUp ? t.greenSoft : t.redSoft) : "transparent",
+                      border: `1px solid ${activeTab === tab ? (chartTrendUp ? t.greenGlow : `${t.red}33`) : t.cardBorder}`,
+                      color: activeTab === tab ? (chartTrendUp ? t.green : t.red) : t.textMuted,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "6px 14px",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      boxShadow: activeTab === tab ? `0 6px 16px ${chartTrendUp ? t.greenGlow : `${t.red}22`}` : "none",
+                    }}
+                  >
+                    {tab.toUpperCase()}
+                  </button>
                 ))}
               </div>
             </div>
@@ -851,23 +1125,30 @@ export default function XpulseDashboard() {
               <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor={t.chartStroke} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={t.chartStroke} stopOpacity={0}   />
+                    <stop offset="0%"   stopColor={chartFillTop} stopOpacity={1} />
+                    <stop offset="100%" stopColor={chartFillBottom} stopOpacity={1} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke={t.gridStroke} strokeDasharray="4 4" />
+                <CartesianGrid stroke={t.gridStroke} strokeDasharray="3 5" vertical={false} />
                 <XAxis dataKey="time" tick={{ fontSize: 10, fill: t.textSub }} axisLine={false} tickLine={false} interval={3} />
-                <YAxis tick={{ fontSize: 10, fill: t.textSub }} axisLine={false} tickLine={false} width={68} tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${v.toFixed(2)}`} />
-                <Tooltip contentStyle={{ background: t.tooltipBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10, fontSize: 12, backdropFilter: "blur(12px)" }} labelStyle={{ color: t.textMuted }} itemStyle={{ color: t.chartStroke, fontWeight: 600 }} />
-                <Area type="monotone" dataKey="price" stroke={t.chartStroke} strokeWidth={2.5} fill="url(#cg)" dot={false} animationDuration={600} />
+                <YAxis tick={{ fontSize: 10, fill: t.textSub }} axisLine={false} tickLine={false} width={68} tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${v.toFixed(2)}`} domain={["dataMin - 200", "dataMax + 200"]} />
+                <Tooltip content={<ChartTooltipCard dark={dark} changeText={chartDeltaText} />} cursor={{ stroke: chartStroke, strokeOpacity: 0.18, strokeDasharray: "4 4" }} />
+                <Area
+                  type="monotone"
+                  dataKey="price"
+                  stroke={chartStroke}
+                  strokeWidth={2.6}
+                  fill="url(#cg)"
+                  dot={false}
+                  activeDot={{ r: 5, stroke: chartStroke, strokeWidth: 2, fill: dark ? "#0b1120" : "#ffffff" }}
+                  animationDuration={600}
+                />
               </AreaChart>
             </ResponsiveContainer>
             {chartLoading && (
               <div style={{ fontSize: 10, color: t.textSub, marginTop: 8 }}>Refreshing chart data...</div>
             )}
           </GlassCard>
-
-          <TimelinePanel events={timeline} dark={dark} />
         </div>
 
         {/* ── Transaction Feed — REAL TXS ONLY ── */}
