@@ -14,16 +14,16 @@ export async function GET() {
     return NextResponse.json({
       lastRun:        status.lastRun,
       lastRunAgo:     timeAgo(status.lastRun),
-      lastAction:     status.lastAction,
-      lastAsset:      status.lastAsset,
-      lastConfidence: status.lastConfidence,
-      lastInsight:    status.lastInsight,
-      lastReason:     status.lastReason,
-      walletAddress:  status.walletAddress,
-      cycleCount:     status.cycleCount,
-      isRunning:      status.isRunning,
-      lastTxHash:     status.lastTxHash,
-      lastExecution:  status.lastExecution,
+      lastAction:     status.lastAction ?? "HOLD",
+      lastAsset:      status.lastAsset ?? "OKB",
+      lastConfidence: status.lastConfidence ?? 0,
+      lastInsight:    status.lastInsight ?? "",
+      lastReason:     status.lastReason ?? "",
+      walletAddress:  status.walletAddress ?? "",
+      cycleCount:     status.cycleCount ?? 0,
+      isRunning:      status.isRunning ?? false,
+      lastTxHash:     status.lastTxHash ?? "",
+      lastExecution:  status.lastExecution ?? "skipped",
     });
   } catch {
     return NextResponse.json({ error: "Could not read agent status" }, { status: 500 });

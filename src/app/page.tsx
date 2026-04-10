@@ -115,16 +115,16 @@ function formatPriceLabel(value: number) {
   }).format(value);
 }
 
-function extractSuggestedAction(insight: string) {
-  const match = insight.match(/ACTION:\s*(BUY|SELL|HOLD|SWAP)\s+([A-Z]+)/i);
+function extractSuggestedAction(insight?: string) {
+  const match = (insight ?? "").match(/ACTION:\s*(BUY|SELL|HOLD|SWAP)\s+([A-Z]+)/i);
   return {
     action: match?.[1]?.toUpperCase() ?? "HOLD",
     asset: match?.[2]?.toUpperCase() ?? "OKB",
   };
 }
 
-function extractChangeFromReason(reason: string) {
-  const match = reason.match(/24h:\s*(-?\d+(?:\.\d+)?)%/i);
+function extractChangeFromReason(reason?: string) {
+  const match = (reason ?? "").match(/24h:\s*(-?\d+(?:\.\d+)?)%/i);
   return match ? Number(match[1]) : null;
 }
 
@@ -312,14 +312,15 @@ function AIInsightPanel({
   dark: boolean;
 }) {
   const t = dark ? DARK : LIGHT;
-  const actionMatch     = insight.match(/ACTION:\s*(BUY|SELL|HOLD)/i);
+  const safeInsight = insight ?? "";
+  const actionMatch     = safeInsight.match(/ACTION:\s*(BUY|SELL|HOLD)/i);
   const action          = actionMatch?.[1]?.toUpperCase();
   const actionColor     = action === "BUY" ? t.green : action === "SELL" ? t.red : t.amber;
-  const confidenceMatch = insight.match(/confidence[:\s]+(\d+)/i);
+  const confidenceMatch = safeInsight.match(/confidence[:\s]+(\d+)/i);
   const confidence      = confidenceMatch ? parseInt(confidenceMatch[1]) : null;
   const statusLabel = loading ? "Refreshing" : error ? "Needs attention" : "Live";
   const statusColor = loading ? t.accent : error ? t.red : t.green;
-  const visibleInsight = insight || "Awaiting market data...";
+  const visibleInsight = safeInsight || "Awaiting market data...";
   const contentBoxHeight = 142;
 
   return (
