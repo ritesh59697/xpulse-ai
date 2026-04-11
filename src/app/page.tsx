@@ -379,7 +379,7 @@ function QuantRuleCard({ dark }: { dark: boolean }) {
   const t = dark ? DARK : LIGHT;
   const rules = [
     { label: "Min confidence", value: "60% to execute" },
-    { label: "BUY threshold", value: "> 5% 24h change" },
+    { label: "BUY threshold", value: ">= 1.5% 24h change" },
     { label: "SELL threshold", value: "< -4% 24h change" },
     { label: "Neutral band", value: "|24h| < 1% => HOLD" },
     { label: "Trade cap", value: "0.001 OKB max" },
@@ -435,7 +435,7 @@ function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: bo
     move === null
       ? null
       : suggested.action === "BUY"
-        ? move > 5
+        ? move >= 1.5
         : suggested.action === "SELL"
           ? move < -4
           : Math.abs(move) < 1;

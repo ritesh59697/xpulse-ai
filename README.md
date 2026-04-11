@@ -269,7 +269,7 @@ Between the AI decision and onchain execution sits a safety layer that applies n
 | Rule | Threshold | Action if Failed |
 |---|---|---|
 | **Confidence Threshold** | AI confidence < 60% | HOLD — signal too weak to trade |
-| **BUY Momentum Check** | 24h price change ≤ 5% on a BUY signal | Downgrade to HOLD |
+| **BUY Momentum Check** | 24h price change < 1.5% on a BUY signal | Downgrade to HOLD |
 | **SELL Momentum Check** | 24h price change ≥ -4% on a SELL signal | Downgrade to HOLD |
 | **Neutral Band** | \|24h move\| < 1% | HOLD — price action too flat |
 | **Balance Safety** | Wallet OKB < trade amount + 0.001 gas buffer | HOLD — insufficient funds |

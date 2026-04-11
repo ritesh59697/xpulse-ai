@@ -76,7 +76,7 @@ const CONFIG = {
   MAX_TRADE_OKB:     "0.001",    // hard ceiling
   MIN_CONFIDENCE:    60,
 
-  BUY_THRESHOLD:  5,
+  BUY_THRESHOLD:  1.5,
   SELL_THRESHOLD: -4,
 };
 
@@ -220,11 +220,39 @@ export function evaluateDecision(marketData: CoinData[], aiSummary: string): Age
 
   let finalAction: AgentDecision["action"] = aiAction;
   let confidence = 50;
+  const neutralBand = 1;
 
-  if      (aiAction === "BUY"  && change > CONFIG.BUY_THRESHOLD)  { confidence = 85; finalAction = "BUY";  }
-  else if (aiAction === "SELL" && change < CONFIG.SELL_THRESHOLD) { confidence = 80; finalAction = "SELL"; }
-  else if (Math.abs(change) < 1)                                  { confidence = 70; finalAction = "HOLD"; }
-  else if (aiAction === "SWAP")                                   { confidence = 65; finalAction = "SWAP"; }
+  if (Math.abs(change) < neutralBand) {
+    finalAction = "HOLD";
+    confidence = 68;
+  } else if (aiAction === "BUY") {
+    if (change >= CONFIG.BUY_THRESHOLD) {
+      const momentumBoost = Math.min(18, Math.round((change - CONFIG.BUY_THRESHOLD) * 6));
+      confidence = Math.min(88, 67 + momentumBoost);
+      finalAction = "BUY";
+    } else if (change > 0) {
+      confidence = Math.min(59, 50 + Math.round(change * 4));
+      finalAction = "HOLD";
+    } else {
+      confidence = 45;
+      finalAction = "HOLD";
+    }
+  } else if (aiAction === "SELL") {
+    if (change <= CONFIG.SELL_THRESHOLD) {
+      const downsideBoost = Math.min(16, Math.round(Math.abs(change - CONFIG.SELL_THRESHOLD) * 4));
+      confidence = Math.min(86, 66 + downsideBoost);
+      finalAction = "SELL";
+    } else if (change < 0) {
+      confidence = Math.min(59, 50 + Math.round(Math.abs(change) * 3));
+      finalAction = "HOLD";
+    } else {
+      confidence = 44;
+      finalAction = "HOLD";
+    }
+  } else if (aiAction === "SWAP") {
+    confidence = 65;
+    finalAction = "SWAP";
+  }
 
   if (finalAction !== "HOLD" && confidence < CONFIG.MIN_CONFIDENCE) {
     finalAction = "HOLD";
@@ -234,10 +262,17 @@ export function evaluateDecision(marketData: CoinData[], aiSummary: string): Age
     ? marketData.find(c => c.symbol !== coin.symbol && c.price_change_percentage_24h > 0)?.symbol?.toUpperCase()
     : undefined;
 
-  const reason =
-    finalAction === "HOLD" && aiAction !== "HOLD" && confidence < CONFIG.MIN_CONFIDENCE
-      ? `AI: ${aiAction}, 24h: ${change.toFixed(2)}%, confidence: ${confidence}% — downgraded to HOLD below ${CONFIG.MIN_CONFIDENCE}% threshold`
-      : `AI: ${aiAction}, 24h: ${change.toFixed(2)}%, confidence: ${confidence}%`;
+  let reason = `AI: ${aiAction}, 24h: ${change.toFixed(2)}%, confidence: ${confidence}%`;
+
+  if (finalAction === "HOLD" && aiAction === "BUY" && change > 0 && change < CONFIG.BUY_THRESHOLD) {
+    reason += ` — below BUY threshold ${CONFIG.BUY_THRESHOLD}%`;
+  } else if (finalAction === "HOLD" && aiAction === "SELL" && change < 0 && change > CONFIG.SELL_THRESHOLD) {
+    reason += ` — above SELL threshold ${CONFIG.SELL_THRESHOLD}%`;
+  } else if (finalAction === "HOLD" && Math.abs(change) < neutralBand) {
+    reason += ` — neutral band under ${neutralBand}%`;
+  } else if (finalAction === "HOLD" && aiAction !== "HOLD" && confidence < CONFIG.MIN_CONFIDENCE) {
+    reason += ` — downgraded to HOLD below ${CONFIG.MIN_CONFIDENCE}% threshold`;
+  }
 
   return {
     action: finalAction, asset: coin.symbol.toUpperCase(), targetAsset,
