@@ -15,8 +15,8 @@
 | | |
 |---|---|
 | **Live Dashboard** | [https://xpulse-ai.vercel.app](https://xpulse-ai.vercel.app) |
-| **Onchain Transaction** | [View on X Layer Explorer](https://www.oklink.com/xlayer/tx/0x6f7ff5594b8adbbc7cfc4cb2e105bb18297d795786e00825d3ed47bde7144f86) |
-| **Demo Video** | [Watch on YouTube](https://youtube.com/YOUR_VIDEO_LINK) |
+| **Onchain Transaction** | [View on X Layer Explorer](https://www.oklink.com/xlayer/tx/0x137d0f07d26ce64fe7762f494b144b41c89e71b631d75c5c49bc41ae9a65e30d) |
+| **Demo Video** | [Watch on YouTube](https://youtu.be/G6UmzfpZO58) |
 
 ## X Layer Arena Compliance
 
@@ -345,9 +345,9 @@ All agent transactions are publicly verifiable on X Layer Mainnet.
 
 | TX Hash | Type | Network |
 |---|---|---|
-| [`0xca6c4f005a8a33dc0d32521cec98c47bbf68db796dcdb7a12bed8f0d1071cc53`](https://www.oklink.com/xlayer/tx/0xca6c4f005a8a33dc0d32521cec98c47bbf68db796dcdb7a12bed8f0d1071cc53) | WRAP OKB→WOKB | X Layer Mainnet |
+| [`0x137d0f07d26ce64fe7762f494b144b41c89e71b631d75c5c49bc41ae9a65e30d`](https://www.oklink.com/xlayer/tx/0x137d0f07d26ce64fe7762f494b144b41c89e71b631d75c5c49bc41ae9a65e30d) | WRAP OKB→WOKB | X Layer Mainnet |
 
-| [`0xc6607a0aa4449fbd869a51003f4282847e21fdbdaa81fdd9e041d9e7d449c805`](https://www.oklink.com/xlayer/tx/0xc6607a0aa4449fbd869a51003f4282847e21fdbdaa81fdd9e041d9e7d449c805) | BUY ETH | X Layer Mainnet |
+| [`0xee949551c53f6317c83b1672dc70a5994f4ead1227b42e92c578d09da3307cf8`](https://www.oklink.com/xlayer/tx/0xee949551c53f6317c83b1672dc70a5994f4ead1227b42e92c578d09da3307cf8) | BUY ETH | X Layer Mainnet |
 
 > 🔍 View all agent activity: `https://www.oklink.com/xlayer/address/0x3480690b1D9337Bb6e3ea471C7a5a84861563Bfd`
 
