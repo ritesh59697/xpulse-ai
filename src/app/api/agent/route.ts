@@ -1,9 +1,10 @@
+// src/app/api/agent/route.ts
+// Triggers one full agent cycle.
+// Returns tokenScores + chosenToken so the dashboard can show the scoring panel.
+
 import { NextResponse } from "next/server";
 
-// This route triggers one full agent cycle with the same real execution path
-// used by the CLI runner.
 export const maxDuration = 60;
-export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
@@ -11,13 +12,15 @@ export async function POST() {
     const result = await runAgentCycle();
 
     return NextResponse.json({
-      success: true,
-      cycleTime: new Date().toISOString(),
-      marketCoins: result.marketData.length,
-      insight: result.aiSummary,
-      decision: result.decision,
+      success:      true,
+      cycleTime:    new Date().toISOString(),
+      insight:      result.aiSummary,
+      decision:     result.decision,
       walletAddress: result.walletAddress,
-      txHash: result.txHash ?? null,
+      txHash:       result.txHash ?? null,
+      // NEW: include token scoring results for dashboard
+      tokenScores:  result.tokenScores  ?? [],
+      chosenToken:  result.chosenToken  ?? "",
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -26,7 +29,6 @@ export async function POST() {
   }
 }
 
-// Also allow GET so the Vercel cron can hit it
 export async function GET() {
   return POST();
 }
