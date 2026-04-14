@@ -58,27 +58,6 @@ interface ChartResponse {
   error?: string;
 }
 
-// NEW: per-token scores from the multi-asset scoring engine
-interface TokenScore {
-  symbol:         string;
-  totalScore:     number;
-  momentumScore:  number;
-  volumeScore:    number;
-  strengthScore:  number;
-  sentimentScore: number;
-  trend:          "strong_up" | "up" | "flat" | "down" | "strong_down";
-  signal:         "BUY" | "HOLD" | "SELL";
-}
-
-interface AgentCycleApiResponse {
-  success?:     boolean;
-  error?:       string;
-  txHash?:      string | null;
-  decision?:    { action?: string; asset?: string };
-  tokenScores?: TokenScore[];
-  chosenToken?: string;
-}
-
 // ─── Static fallback data ─────────────────────────────────────────────────────
 
 const FALLBACK_MARKET: CoinData[] = [
@@ -342,16 +321,17 @@ function AIInsightPanel({
   const statusLabel = loading ? "Refreshing" : error ? "Needs attention" : "Live";
   const statusColor = loading ? t.accent : error ? t.red : t.green;
   const visibleInsight = safeInsight || "Awaiting market data...";
+  const contentBoxHeight = 142;
 
   return (
-    <GlassCard style={{ padding: "28px 30px", position: "relative", overflow: "hidden", alignSelf: "start" }}>
+    <GlassCard style={{ padding: "28px 30px", position: "relative", overflow: "hidden", alignSelf: "start", minHeight: 204 }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, ${t.purple}, transparent)` }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${t.accent}, ${t.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: `0 0 12px ${t.accentGlow}` }}>🧠</div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>AI Suggestion</div>
-            <div style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>Groq LLaMA 3.3 · multi-asset scoring engine · analysis only</div>
+            <div style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>Groq LLaMA 3.3 · okx-dex-market skill · analysis only</div>
             <div style={{ fontSize: 11, color: t.textSub, marginTop: 3 }}>{formatUpdatedAt(updatedAt)}</div>
           </div>
         </div>
@@ -378,9 +358,10 @@ function AIInsightPanel({
       <div style={{ fontSize: 11.5, color: t.textSub, marginBottom: 13 }}>
         Refreshing this panel updates the market suggestion only. Executed trades are shown separately in Last Executed Trade.
       </div>
-      {/* No fixed height or overflow scroll — content expands to show everything */}
-      <div style={{ position: "relative", fontSize: 14.5, lineHeight: 1.95, color: t.text, whiteSpace: "pre-wrap", padding: "17px 18px", borderRadius: 10, background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", border: `1px solid ${t.cardBorder}` }}>
-        {visibleInsight}
+      <div style={{ position: "relative", fontSize: 14.5, lineHeight: 1.95, color: t.text, whiteSpace: "pre-wrap", padding: "17px 18px", borderRadius: 10, background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", border: `1px solid ${t.cardBorder}`, minHeight: contentBoxHeight }}>
+        <div style={{ maxHeight: contentBoxHeight - 10, overflowY: "auto", paddingRight: 4 }}>
+          {visibleInsight}
+        </div>
         {loading && (
           <div style={{ position: "absolute", inset: 0, borderRadius: 10, background: dark ? "rgba(5,8,16,0.18)" : "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: t.accent, fontSize: 12, fontWeight: 600, padding: "8px 12px", borderRadius: 999, background: dark ? "rgba(10,14,26,0.9)" : "rgba(255,255,255,0.92)", border: `1px solid ${t.accentGlow}`, boxShadow: `0 6px 18px ${t.accentGlow}` }}>
@@ -550,113 +531,6 @@ function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: bo
   );
 }
 
-// NEW: Token Scoring Panel — shows WHY the agent chose a token
-function TokenScoringPanel({ scores, chosenToken, dark }: { scores: TokenScore[]; chosenToken: string; dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
-
-  const trendIcon = (trend: TokenScore["trend"]) => {
-    if (trend === "strong_up")   return { icon: "▲▲", color: t.green };
-    if (trend === "up")          return { icon: "▲",  color: t.green };
-    if (trend === "strong_down") return { icon: "▼▼", color: t.red   };
-    if (trend === "down")        return { icon: "▼",  color: t.red   };
-    return                              { icon: "—",  color: t.textSub };
-  };
-
-  const signalColor = (sig: TokenScore["signal"]) =>
-    sig === "BUY" ? t.green : sig === "SELL" ? t.red : t.amber;
-
-  const scoreBar = (value: number, color: string) => (
-    <div style={{ flex: 1, height: 4, borderRadius: 2, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)", overflow: "hidden" }}>
-      <div style={{ width: `${value}%`, height: "100%", borderRadius: 2, background: color, transition: "width 0.6s ease" }} />
-    </div>
-  );
-
-  if (!scores.length) return null;
-
-  return (
-    <GlassCard style={{ padding: "20px 22px", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${t.purple}, ${t.accent}, transparent)` }} />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Token Scoring</div>
-          <div style={{ fontSize: 10, color: t.textSub, marginTop: 2 }}>
-            Multi-factor ranking · momentum · volume · relative strength · sentiment
-          </div>
-        </div>
-        {chosenToken && (
-          <div style={{ padding: "5px 12px", borderRadius: 20, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, fontSize: 11, fontWeight: 700, color: t.accent }}>
-            ✦ {chosenToken.toUpperCase()} selected
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {scores.map((s, i) => {
-          const trend   = trendIcon(s.trend);
-          const isChosen = s.symbol.toLowerCase() === chosenToken.toLowerCase();
-          const barColor = s.signal === "BUY" ? t.green : s.signal === "SELL" ? t.red : t.accent;
-
-          return (
-            <div
-              key={s.symbol}
-              style={{
-                padding: "12px 14px", borderRadius: 12,
-                background: isChosen
-                  ? (dark ? "rgba(79,158,255,0.07)" : "rgba(37,99,235,0.06)")
-                  : (dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
-                border: `1px solid ${isChosen ? t.accentGlow : t.cardBorder}`,
-              }}
-            >
-              {/* Row 1: rank + symbol + trend + score + signal */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: t.textSub, width: 16, textAlign: "right" as const, fontFamily: "monospace" }}>
-                  {i + 1}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: t.text, width: 38 }}>{s.symbol}</span>
-                <span style={{ fontSize: 11, color: trend.color, fontWeight: 700, width: 20 }}>{trend.icon}</span>
-                {/* Score bar */}
-                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-                  {scoreBar(s.totalScore, barColor)}
-                  <span style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 28, textAlign: "right" as const }}>{s.totalScore}</span>
-                </div>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                  color: signalColor(s.signal),
-                  background: `${signalColor(s.signal)}15`,
-                  border: `1px solid ${signalColor(s.signal)}35`,
-                  minWidth: 38, textAlign: "center" as const,
-                }}>{s.signal}</span>
-              </div>
-
-              {/* Row 2: factor breakdown */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, paddingLeft: 26 }}>
-                {[
-                  { label: "Mom", value: s.momentumScore,  color: t.accent },
-                  { label: "Vol", value: s.volumeScore,    color: t.purple },
-                  { label: "RS",  value: s.strengthScore,  color: t.green  },
-                  { label: "Sent",value: s.sentimentScore, color: t.amber  },
-                ].map(f => (
-                  <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    <div style={{ fontSize: 9, color: t.textSub, letterSpacing: 0.8, textTransform: "uppercase" as const }}>{f.label}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      {scoreBar(f.value, f.color)}
-                      <span style={{ fontSize: 10, fontWeight: 600, color: f.color, width: 22, textAlign: "right" as const }}>{f.value}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ marginTop: 12, fontSize: 10, color: t.textSub, lineHeight: 1.6 }}>
-        Mom = momentum · Vol = volume surge · RS = relative strength · Sent = xAI market sentiment
-      </div>
-    </GlassCard>
-  );
-}
-
 function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolean }) {
   const t = dark ? DARK : LIGHT;
   const cfg = {
@@ -742,9 +616,6 @@ export default function XpulseDashboard() {
   const [portfolio, setPortfolio]           = useState({ okb: 0, wokb: 0, okbUsd: 0, wokbUsd: 0, totalUsd: 0 });
   const [agentRunning, setAgentRunning]     = useState(false);
   const [portfolioUpdatedAt, setPortfolioUpdatedAt] = useState<number | null>(null);
-  // NEW: token scoring state
-  const [tokenScores, setTokenScores]       = useState<TokenScore[]>([]);
-  const [chosenToken, setChosenToken]       = useState<string>("");
   const nextId                              = useRef(1);
   const t                                   = dark ? DARK : LIGHT;
   const prevStatusRef                       = useRef<AgentStatus | null>(null);
@@ -923,20 +794,17 @@ export default function XpulseDashboard() {
     pushTimelineEvent("info", "Agent cycle triggered manually", now);
     try {
       const res = await fetch("/api/agent", { method: "POST", cache: "no-store" });
-      const data = await res.json() as AgentCycleApiResponse;
+      const data = await res.json() as {
+        success?: boolean;
+        error?: string;
+        txHash?: string | null;
+        decision?: { action?: string; asset?: string };
+      };
 
       const now2 = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
       if (!res.ok || !data.success) {
         pushTimelineEvent("info", `Cycle error: ${data.error ?? "unknown error"}`, now2);
         return;
-      }
-
-      // NEW: update token scores from agent cycle result
-      if (data.tokenScores?.length) {
-        setTokenScores(data.tokenScores);
-        setChosenToken(data.chosenToken ?? "");
-        const topScore = data.tokenScores[0];
-        pushTimelineEvent("info", `Scoring: ${topScore.symbol} ranked #1 (score ${topScore.totalScore})`, now2);
       }
 
       pushTimelineEvent(
@@ -948,7 +816,9 @@ export default function XpulseDashboard() {
       );
 
       await Promise.all([fetchStatus(), fetchTransactions(), fetchPortfolio()]);
-      setTimeout(() => { void Promise.all([fetchStatus(), fetchTransactions(), fetchPortfolio()]); }, 1500);
+      setTimeout(() => {
+        void Promise.all([fetchStatus(), fetchTransactions(), fetchPortfolio()]);
+      }, 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       const now2 = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
@@ -1195,13 +1065,6 @@ export default function XpulseDashboard() {
             <LatestTxMonitor tx={latestTx} dark={dark} />
           </div>
         </div>
-
-        {/* ── NEW: Token Scoring Panel ── */}
-        {tokenScores.length > 0 && (
-          <div style={{ marginBottom: 20, animation: "fadeUp 0.5s ease 0.15s both" }}>
-            <TokenScoringPanel scores={tokenScores} chosenToken={chosenToken} dark={dark} />
-          </div>
-        )}
 
         {/* ── Market + Chart + Timeline ── */}
         <div style={{ display: "grid", gridTemplateColumns: marketGridColumns, gap: 14, marginBottom: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
