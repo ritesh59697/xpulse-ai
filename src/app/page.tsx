@@ -1109,8 +1109,8 @@ export default function XpulseDashboard() {
           <div className="flex items-center justify-between md:justify-start gap-4">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-black border border-zinc-800 flex items-center justify-center shadow-md shadow-black/20 transition-transform duration-300 hover:scale-105">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-black border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-sm dark:shadow-md transition-transform duration-300 hover:scale-105">
+                <svg className="w-5 h-5 text-zinc-900 dark:text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g transform="translate(51, 106)">
                     <path d="M 15,0 L 75,0 A 15,15 0 0 1 90,15 L 90,60 C 90,80 120,105 150,105 C 180,105 210,80 210,60 L 210,15 A 15,15 0 0 1 225,0 L 285,0 A 15,15 0 0 1 300,15 L 300,75 A 15,15 0 0 1 285,90 L 240,90 C 215,90 195,120 195,150 C 195,180 215,210 240,210 L 285,210 A 15,15 0 0 1 300,225 L 300,285 A 15,15 0 0 1 285,300 L 225,300 A 15,15 0 0 1 210,285 L 210,240 C 210,215 180,195 150,195 C 120,195 90,215 90,240 L 90,285 A 15,15 0 0 1 75,300 L 15,300 A 15,15 0 0 1 0,285 L 0,225 A 15,15 0 0 1 15,210 L 60,210 C 85,210 105,180 105,150 C 105,120 85,90 60,90 L 15,90 A 15,15 0 0 1 0,75 L 0,15 A 15,15 0 0 1 15,0 Z" fill="currentColor" />
                     <rect x="330" y="0" width="80" height="300" rx="20" fill="currentColor" />
