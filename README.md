@@ -416,6 +416,7 @@ In the deployed Vercel app, the agent runs through the **Run Agent** button. Thi
 ### Prerequisites
 
 - Node.js v18 or v20
+- [pnpm](https://pnpm.io) v8+ (install with `npm i -g pnpm` or `corepack enable`)
 - A dedicated agent wallet (never use your main wallet)
 - Real OKB on X Layer Mainnet (bridge from OKX exchange)
 - Groq API key — free at [console.groq.com](https://console.groq.com)
@@ -427,8 +428,8 @@ In the deployed Vercel app, the agent runs through the **Run Agent** button. Thi
 git clone https://github.com/ritesh59697/xpulse-ai.git
 cd xpulse-ai
 
-# Install dependencies
-npm install
+# Install dependencies (project uses pnpm)
+pnpm install
 
 # Install Onchain OS Skills
 npx skills add okx/onchainos-skills
@@ -445,7 +446,7 @@ cp .env.example .env.local
 ### Run Locally
 
 ```bash
-npm run dev
+pnpm dev
 # Open http://localhost:3000
 ```
 
