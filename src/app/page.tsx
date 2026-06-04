@@ -6,6 +6,29 @@ import {
   ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
+import {
+  Brain,
+  Shield,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Activity,
+  Sun,
+  Moon,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  Copy,
+  Check,
+  ExternalLink,
+  RefreshCw,
+  Info,
+  Wallet,
+  User,
+  Clock
+} from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -137,13 +160,41 @@ function extractSuggestedAction(insight?: string) {
   };
 }
 
-// Extract change value for momentum rule gating
 function extractChangeFromReason(reason?: string) {
   const match = (reason ?? "").match(/24h:\s*(-?\d+(?:\.\d+)?)%/i);
   return match ? Number(match[1]) : null;
 }
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
+function generateFallbackChart(currentPrice: number, changePercent: number): ChartPoint[] {
+  const points: ChartPoint[] = [];
+  const hours = 24;
+  const startPrice = currentPrice / (1 + changePercent / 100);
+  const priceDifference = currentPrice - startPrice;
+  const now = new Date();
+
+  for (let i = 0; i < hours; i++) {
+    const d = new Date(now.getTime() - (hours - 1 - i) * 60 * 60 * 1000);
+    const timeStr = d.toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const trend = i / (hours - 1);
+    const trendPrice = startPrice + priceDifference * trend;
+    const wave1 = Math.sin(i * 0.5) * (currentPrice * 0.008);
+    const wave2 = Math.cos(i * 0.9) * (currentPrice * 0.003);
+    const price = i === hours - 1 ? currentPrice : trendPrice + wave1 + wave2;
+
+    points.push({
+      time: timeStr,
+      price: Math.max(0.001, price),
+    });
+  }
+  return points;
+}
+
+// ─── Theme constants (deprecated but kept for styles fallback) ────────────────
 
 const DARK = {
   bg: "#090d16",
@@ -208,70 +259,102 @@ const LIGHT = {
 function GlassCard({ children, style = {}, className = "" }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
     <Card 
-      className={cn("premium-card shadow-sm border-[1px] rounded-[24px] p-6", className)}
-      style={{
-        borderColor: "var(--card-border)", 
-        background: "var(--card)",
-        boxShadow: "var(--card-shadow)",
-        ...style,
-      }}
+      className={cn("premium-card shadow-md border border-border rounded-2xl p-6 bg-card text-card-foreground transition-all duration-300", className)}
+      style={style}
     >
       {children}
     </Card>
   );
 }
 
-function PulsingDot({ color }: { color: string }) {
+function PulsingDot({ className = "" }: { className?: string }) {
   return (
-    <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8 }}>
-      <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: color, opacity: 0.4, animation: "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" }} />
-      <span style={{ position: "relative", borderRadius: "50%", width: 8, height: 8, background: color }} />
+    <span className={cn("relative flex h-2.5 w-2.5", className)}>
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
     </span>
   );
 }
 
-function StatCard({ label, value, delta, neg, dark }: { label: string; value: string; delta: string; neg?: boolean; dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
+function CopyButton({ text, className = "" }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   return (
-    <GlassCard style={{ padding: "24px 28px" }}>
-      <div style={{ fontSize: 11, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 800, color: t.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{value}</div>
-      <div style={{ fontSize: 13, color: neg ? t.red : t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-        <span style={{ fontSize: 10 }}>{neg ? "▼" : "▲"}</span> {delta}
+    <button 
+      onClick={handleCopy} 
+      className={cn("p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground", className)}
+      title="Copy to clipboard"
+    >
+      {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
+
+function StatCard({ label, value, delta, neg, loading }: { label: string; value: string; delta: string; neg?: boolean; loading?: boolean }) {
+  if (loading) {
+    return (
+      <GlassCard className="p-6 transition-all duration-300">
+        <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2.5">
+          {label}
+        </div>
+        <div className="h-8 w-24 bg-muted/40 rounded-lg animate-pulse mb-3" />
+        <div className="h-4.5 w-16 bg-muted/30 rounded-md animate-pulse" />
+      </GlassCard>
+    );
+  }
+
+  const hasTrend = neg !== undefined;
+
+  return (
+    <GlassCard className="p-6 transition-all duration-300 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5">
+      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">
+        {label}
+      </div>
+      <div className="text-3xl font-extrabold tracking-tight font-mono mb-2">
+        {value}
+      </div>
+      <div className={cn(
+        "text-xs font-semibold flex items-center gap-1",
+        hasTrend ? (neg ? "text-destructive" : "text-emerald-500") : "text-muted-foreground"
+      )}>
+        {hasTrend && (neg ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />)}
+        <span>{delta}</span>
       </div>
     </GlassCard>
   );
 }
 
-function MarketMoverCard({ coin, dark }: { coin: CoinData; dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
+function MarketMoverCard({ coin, dark }: { coin: CoinData; dark?: boolean }) {
   const up = coin.price_change_percentage_24h >= 0;
-  const pillBg = up ? t.greenSoft : t.redSoft;
-  const pillBorder = up ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
   return (
-    <div style={{
-      display: "flex", 
-      alignItems: "center", 
-      gap: 14, 
-      padding: "14px 18px", 
-      borderRadius: 16,
-      background: dark ? "rgba(255,255,255,0.02)" : "#f8fafc",
-      border: `1px solid ${t.cardBorder}`,
-      transition: "all 0.2s ease"
-    }}
-    className="hover:scale-[1.01] hover:border-slate-300"
-    >
-      {coin.image
+    <div className="flex items-center gap-3.5 p-3 rounded-xl bg-muted/10 border border-border hover:bg-muted/20 transition-all duration-300">
+      {coin.image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={coin.image} alt={coin.symbol} style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0 }} />
-        : <div style={{ width: 34, height: 34, borderRadius: "50%", background: t.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: t.accent, flexShrink: 0 }}>{coin.symbol.slice(0, 2).toUpperCase()}</div>
-      }
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{coin.name}</div>
-        <div style={{ fontSize: 12, color: t.textSub, marginTop: 2, fontWeight: 500 }}>${coin.current_price.toLocaleString()}</div>
+        <img src={coin.image} alt={coin.symbol} className="w-8 h-8 rounded-full flex-shrink-0" />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent flex-shrink-0">
+          {coin.symbol.slice(0, 2).toUpperCase()}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold truncate">{coin.name}</div>
+        <div className="text-xs text-muted-foreground font-mono mt-0.5">
+          ${coin.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+        </div>
       </div>
-      <Badge variant="outline" style={{ borderColor: pillBorder, background: pillBg, color: up ? t.green : t.red }} className="font-bold text-xs px-2.5 py-0.5 rounded-full">
-        {up ? "▲" : "▼"} {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
+      <Badge 
+        variant="outline" 
+        className={cn(
+          "font-bold text-[10px] px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm", 
+          up ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500" : "border-destructive/20 bg-destructive/10 text-destructive"
+        )}
+      >
+        {up ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+        {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
       </Badge>
     </div>
   );
@@ -290,106 +373,95 @@ function AIInsightPanel({
   error: string | null;
   updatedAt: number | null;
   onRefresh: () => void;
-  dark: boolean;
+  dark?: boolean;
 }) {
-  const t = dark ? DARK : LIGHT;
   const safeInsight = insight ?? "";
-  const actionMatch     = safeInsight.match(/ACTION:\s*(BUY|SELL|HOLD)/i);
-  const action          = actionMatch?.[1]?.toUpperCase();
-  const actionColor     = action === "BUY" ? t.green : action === "SELL" ? t.red : t.amber;
+  const actionMatch = safeInsight.match(/ACTION:\s*(BUY|SELL|HOLD)/i);
+  const action = actionMatch?.[1]?.toUpperCase();
   const confidenceMatch = safeInsight.match(/confidence[:\s]+(\d+)/i);
-  const confidence      = confidenceMatch ? parseInt(confidenceMatch[1]) : null;
+  const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : null;
   const statusLabel = loading ? "Refreshing" : error ? "Needs attention" : "Live";
-  const statusColor = loading ? t.accent : error ? t.red : t.green;
   const visibleInsight = safeInsight || "Awaiting market data...";
-  const contentBoxHeight = 142;
 
   return (
-    <GlassCard style={{ padding: "28px 30px", position: "relative", overflow: "hidden", alignSelf: "start", minHeight: 204 }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, ${t.purple}, transparent)` }} />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${t.accent}, ${t.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, boxShadow: `0 4px 12px ${t.accentGlow}` }}>🧠</div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "-0.02em" }}>AI Suggestion</div>
-            <div style={{ fontSize: 12, color: t.textSub, marginTop: 2, fontWeight: 500 }}>Groq LLaMA 3.3 · okx-dex-market skill</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Badge variant="outline" style={{ borderColor: `${statusColor}35`, background: `${statusColor}12`, color: statusColor }} className="font-bold text-xs px-3 py-1 rounded-full">
-            {statusLabel}
-          </Badge>
-          {action && !loading && (
-            <Badge variant="outline" style={{ borderColor: `${actionColor}40`, background: `${actionColor}15`, color: actionColor, boxShadow: `0 0 10px ${actionColor}30` }} className="font-bold text-xs px-3.5 py-1 rounded-md">
-              {action === "BUY" ? "📈" : action === "SELL" ? "📉" : "⏸"} {action}
-            </Badge>
-          )}
-          {confidence !== null && !loading && (
-            <Badge variant="outline" style={{ borderColor: t.accentGlow, background: t.accentSoft, color: t.accent }} className="font-semibold text-xs px-3.5 py-1 rounded-md">
-              {confidence}% confidence
-            </Badge>
-          )}
-          <button 
-            onClick={() => onRefresh()} 
-            style={{ 
-              background: t.accentSoft, 
-              border: `1px solid ${t.accentGlow}`, 
-              color: t.accent, 
-              fontSize: 13, 
-              padding: "8px 16px", 
-              borderRadius: 10, 
-              cursor: "pointer", 
-              fontWeight: 600,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-            className="hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span style={{ fontSize: 14 }}>↻</span> Refresh Analysis
-          </button>
-        </div>
-      </div>
-      {error && (
-        <div style={{ fontSize: 12, color: t.red, marginBottom: 10, padding: "10px 12px", borderRadius: 10, background: t.redSoft, border: `1px solid ${t.red}25` }}>
-          {error}
-        </div>
-      )}
-      <div style={{ fontSize: 12, color: t.textSub, marginBottom: 13, fontWeight: 500 }}>
-        Refreshing this panel updates the market suggestion only. Executed trades are shown separately in Last Executed Trade.
-      </div>
-      <div style={{ 
-        position: "relative", 
-        fontSize: "14.5px", 
-        lineHeight: "1.75", 
-        color: t.textMuted, 
-        whiteSpace: "pre-wrap", 
-        padding: "20px 24px", 
-        borderRadius: 16, 
-        background: dark ? "rgba(255,255,255,0.02)" : "#f8fafc", 
-        border: `1px solid ${t.cardBorder}`, 
-        minHeight: contentBoxHeight,
-        fontFamily: "'Inter', sans-serif"
-      }}>
-        <div style={{ maxHeight: contentBoxHeight - 10, overflowY: "auto", paddingRight: 4 }}>
-          {visibleInsight}
-        </div>
-        {loading && (
-          <div style={{ position: "absolute", inset: 0, borderRadius: 10, background: dark ? "rgba(5,8,16,0.18)" : "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: t.accent, fontSize: 12, fontWeight: 600, padding: "8px 12px", borderRadius: 999, background: dark ? "rgba(10,14,26,0.9)" : "rgba(255,255,255,0.92)", border: `1px solid ${t.accentGlow}`, boxShadow: `0 6px 18px ${t.accentGlow}` }}>
-              <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>◌</span>
-              Refreshing analysis...
+    <GlassCard className="p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px]">
+      <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-transparent via-accent to-indigo-500" />
+      
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-indigo-600 flex items-center justify-center shadow-lg shadow-accent/15">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold tracking-tight">AI Suggestion</h3>
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Groq LLaMA 3.3 · okx-dex-market skill</p>
             </div>
           </div>
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className={cn(
+              "font-bold text-[10px] px-2.5 py-0.5 rounded-full",
+              loading ? "border-accent/20 bg-accent/10 text-accent" : error ? "border-destructive/20 bg-destructive/10 text-destructive" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-500"
+            )}>
+              {statusLabel}
+            </Badge>
+            {action && !loading && (
+              <Badge variant="outline" className={cn(
+                "font-bold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm",
+                action === "BUY" ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-500" :
+                action === "SELL" ? "border-destructive/30 bg-destructive/15 text-destructive" :
+                "border-amber-500/30 bg-amber-500/15 text-amber-500"
+              )}>
+                {action === "BUY" ? <TrendingUp className="w-3 h-3" /> : action === "SELL" ? <TrendingDown className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                {action}
+              </Badge>
+            )}
+            {confidence !== null && !loading && (
+              <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full border-accent/20 bg-accent/5 text-accent">
+                {confidence}% confidence
+              </Badge>
+            )}
+            <button 
+              onClick={() => onRefresh()} 
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/20 bg-accent/5 hover:bg-accent/15 text-accent text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 animate-in fade-in"
+            >
+              <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} />
+              <span>Refresh Analysis</span>
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-xl p-3 mb-4">
+            {error}
+          </div>
         )}
+        
+        <p className="text-[11px] text-muted-foreground font-medium mb-3">
+          Refreshing this panel updates the market suggestion only. Executed trades are shown separately in Last Executed Trade.
+        </p>
+
+        <div className="relative text-sm leading-relaxed text-muted-foreground p-5 rounded-2xl bg-muted/5 border border-border min-h-[142px]">
+          <div className="max-h-[130px] overflow-y-auto pr-1 font-sans">
+            {visibleInsight}
+          </div>
+          {loading && (
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] rounded-2xl flex items-center justify-center pointer-events-none">
+              <div className="inline-flex items-center gap-2 text-accent text-xs font-bold px-4 py-2.5 rounded-full bg-card border border-accent/25 shadow-lg shadow-accent/10">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Refreshing analysis...</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </GlassCard>
   );
 }
 
-function QuantRuleCard({ dark }: { dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
+function QuantRuleCard({ dark }: { dark?: boolean }) {
   const rules = [
     { label: "Min confidence", value: "60% to execute" },
     { label: "BUY threshold", value: "≥ 1.5% 24h change" },
@@ -400,28 +472,21 @@ function QuantRuleCard({ dark }: { dark: boolean }) {
   ];
 
   return (
-    <GlassCard style={{ padding: "24px 26px", position: "relative", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
-        <span style={{ fontSize: 14 }}>🛡️</span>
-        <div style={{ fontSize: 14, fontWeight: 700, color: t.text, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+    <GlassCard className="p-6 relative overflow-hidden transition-all duration-300 hover:border-accent/30">
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="w-4 h-4 text-accent" />
+        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Quant Safety Rules
-        </div>
+        </h4>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="flex flex-col gap-3">
         {rules.map((rule) => (
           <div
             key={rule.label}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 12,
-              paddingBottom: 10,
-              borderBottom: `1px solid ${t.cardBorder}`,
-            }}
+            className="flex justify-between items-center gap-3 pb-2.5 border-b border-border last:border-0 last:pb-0"
           >
-            <span style={{ fontSize: 13, color: t.textSub, fontWeight: 500 }}>{rule.label}</span>
-            <span style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>{rule.value}</span>
+            <span className="text-xs text-muted-foreground font-medium">{rule.label}</span>
+            <span className="text-xs font-bold font-mono">{rule.value}</span>
           </div>
         ))}
       </div>
@@ -429,16 +494,14 @@ function QuantRuleCard({ dark }: { dark: boolean }) {
   );
 }
 
-function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
-
+function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark?: boolean }) {
   if (!status || !status.lastRun) {
     return (
-      <GlassCard style={{ padding: "24px 26px" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 14 }}>
+      <GlassCard className="p-6">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
           Cycle Result
-        </div>
-        <div style={{ fontSize: 13, color: t.textMuted }}>Run the agent once to see the latest rule trace.</div>
+        </h4>
+        <p className="text-xs text-muted-foreground">Run the agent once to see the latest rule trace.</p>
       </GlassCard>
     );
   }
@@ -459,14 +522,18 @@ function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: bo
     {
       label: "AI suggested",
       value: `${suggested.action} ${suggested.asset}`,
-      tone: t.accent,
-      bg: t.accentSoft,
+      tone: "text-accent",
+      border: "border-accent/10",
+      bg: "bg-accent/5",
+      icon: <Brain className="w-3.5 h-3.5 text-accent" />
     },
     {
       label: "Confidence gate",
       value: `${status.lastConfidence}% ${confidencePass ? "passed" : "blocked"}`,
-      tone: confidencePass ? t.green : t.red,
-      bg: confidencePass ? t.greenSoft : t.redSoft,
+      tone: confidencePass ? "text-emerald-500" : "text-destructive",
+      border: confidencePass ? "border-emerald-500/10" : "border-destructive/10",
+      bg: confidencePass ? "bg-emerald-500/5" : "bg-destructive/5",
+      icon: confidencePass ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <XCircle className="w-3.5 h-3.5 text-destructive" />
     },
     {
       label: "Momentum rule",
@@ -474,70 +541,78 @@ function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: bo
         move === null
           ? "Using latest rule output"
           : `${move >= 0 ? "+" : ""}${move.toFixed(2)}% ${movePass ? "qualified" : "held back"}`,
-      tone: movePass === null ? t.textMuted : movePass ? t.green : t.amber,
-      bg: movePass === null ? (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)") : movePass ? t.greenSoft : "rgba(251,191,36,0.06)",
+      tone: movePass === null ? "text-muted-foreground" : movePass ? "text-emerald-500" : "text-amber-500",
+      border: movePass === null ? "border-border" : movePass ? "border-emerald-500/10" : "border-amber-500/10",
+      bg: movePass === null ? "bg-muted/5" : movePass ? "bg-emerald-500/5" : "bg-amber-500/5",
+      icon: movePass === null ? <Clock className="w-3.5 h-3.5 text-muted-foreground" /> : movePass ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
     },
     {
       label: "Final result",
       value: status.lastExecution === "executed" ? `${status.lastAction} executed` : `${status.lastAction} skipped`,
-      tone: status.lastExecution === "executed" ? t.green : t.text,
-      bg: status.lastExecution === "executed" ? t.greenSoft : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"),
+      tone: status.lastExecution === "executed" ? "text-emerald-500" : "text-muted-foreground",
+      border: status.lastExecution === "executed" ? "border-emerald-500/20" : "border-border",
+      bg: status.lastExecution === "executed" ? "bg-emerald-500/5" : "bg-muted/5",
+      icon: status.lastExecution === "executed" ? <Zap className="w-3.5 h-3.5 text-emerald-500" /> : <Clock className="w-3.5 h-3.5 text-muted-foreground" />
     },
   ];
 
   return (
-    <GlassCard style={{ padding: "24px 26px", display: "flex", flexDirection: "column", flex: 1 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 18 }}>
+    <GlassCard className="p-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase" }}>Cycle Result</div>
-          <div style={{ fontSize: 11, color: t.textSub, marginTop: 3, fontWeight: 500 }}>Latest rule trace for the most recent agent cycle</div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cycle Result</h4>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Latest rule trace for the most recent agent cycle</p>
         </div>
-        <Badge variant="outline" style={{ borderColor: t.accentGlow, background: t.accentSoft, color: t.accent }} className="font-bold text-xs px-2.5 py-0.5 rounded-full">
+        <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full border-accent/20 bg-accent/5 text-accent font-mono">
           #{status.cycleCount}
         </Badge>
       </div>
 
-      <div style={{ display: "grid", gap: 12 }}>
+      <div className="grid gap-3">
         {rows.map((row) => (
           <div
             key={row.label}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "130px minmax(0, 1fr)",
-              gap: 12,
-              alignItems: "center",
-              padding: "12px 16px",
-              borderRadius: 14,
-              background: row.bg,
-              border: `1px solid ${t.cardBorder}`,
-            }}
+            className={cn(
+              "flex items-center justify-between gap-4 p-3 rounded-xl border",
+              row.border,
+              row.bg
+            )}
           >
-            <div style={{ fontSize: 11, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{row.label}</div>
-            <div style={{ fontSize: 14, color: row.tone, fontWeight: 700 }}>{row.value}</div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {row.icon}
+              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{row.label}</span>
+            </div>
+            <div className={cn("text-xs font-bold truncate", row.tone)}>{row.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ marginTop: 18, fontSize: 13, color: t.textMuted, lineHeight: 1.6, fontWeight: 400 }}>
+      <p className="text-xs text-muted-foreground leading-relaxed mt-2 p-3 bg-muted/5 border border-border rounded-xl font-medium">
         {status.lastReason || "Rule trace unavailable for this cycle."}
-      </div>
+      </p>
 
-      <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-        <div style={{ padding: "12px", borderRadius: 14, background: dark ? "rgba(255,255,255,0.03)" : "#f8fafc", border: `1px solid ${t.cardBorder}` }}>
-          <div style={{ fontSize: 10, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Execution</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: status.lastExecution === "executed" ? t.green : t.text }}>
+      <div className="mt-auto grid grid-cols-3 gap-2.5 pt-4 border-t border-border">
+        <div className="p-2.5 rounded-xl bg-muted/5 border border-border text-center">
+          <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Execution</div>
+          <div className={cn("text-xs font-bold", status.lastExecution === "executed" ? "text-emerald-500" : "text-muted-foreground")}>
             {status.lastExecution === "executed" ? "Executed" : "Skipped"}
           </div>
         </div>
-        <div style={{ padding: "12px", borderRadius: 14, background: dark ? "rgba(255,255,255,0.03)" : "#f8fafc", border: `1px solid ${t.cardBorder}` }}>
-          <div style={{ fontSize: 10, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Tx State</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: status.lastTxHash ? t.accent : t.text }}>
-            {status.lastTxHash ? shortHash(status.lastTxHash) : "No tx"}
+        <div className="p-2.5 rounded-xl bg-muted/5 border border-border text-center">
+          <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Tx Hash</div>
+          <div className="text-xs font-bold font-mono truncate">
+            {status.lastTxHash ? (
+              <a href={txUrl(status.lastTxHash)} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                {shortHash(status.lastTxHash)}
+              </a>
+            ) : (
+              "No tx"
+            )}
           </div>
         </div>
-        <div style={{ padding: "12px", borderRadius: 14, background: dark ? "rgba(255,255,255,0.03)" : "#f8fafc", border: `1px solid ${t.cardBorder}` }}>
-          <div style={{ fontSize: 10, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Updated</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+        <div className="p-2.5 rounded-xl bg-muted/5 border border-border text-center">
+          <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Updated</div>
+          <div className="text-xs font-bold font-mono">
             {new Date(status.lastRun).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
           </div>
         </div>
@@ -546,26 +621,53 @@ function CycleTraceCard({ status, dark }: { status: AgentStatus | null; dark: bo
   );
 }
 
-function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
-  const cfg = {
-    confirm:  { color: t.green,     icon: "✓", bg: t.greenSoft  },
-    trade:    { color: t.purple,    icon: "⚡", bg: t.purpleSoft },
-    decision: { color: t.accent,    icon: "◆", bg: t.accentSoft  },
-    info:     { color: t.textMuted, icon: "•", bg: dark ? "rgba(255,255,255,0.02)" : "#f8fafc" },
-  };
+function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark?: boolean }) {
   return (
-    <GlassCard style={{ padding: "24px 26px", display: "flex", flexDirection: "column", flex: 1, minHeight: 250 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 16 }}>AI Reasoning Timeline</div>
-      <div style={{ maxHeight: 210, overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
-        {events.length === 0 && <div style={{ fontSize: 13, color: t.textMuted, padding: "20px 0", textAlign: "center" as const }}>Waiting for agent cycle...</div>}
+    <GlassCard className="p-6 flex flex-col min-h-[250px]">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
+        AI Reasoning Timeline
+      </h4>
+      <div className="max-h-[210px] overflow-y-auto pr-1 flex flex-col gap-2 relative">
+        {events.length === 0 && (
+          <div className="text-xs text-muted-foreground py-10 text-center font-medium">
+            Waiting for agent cycle...
+          </div>
+        )}
         {events.map((ev, i) => {
-          const c = cfg[ev.type];
+          const isLatest = i === 0;
+          let icon = <Info className="w-3 h-3 text-muted-foreground" />;
+          let iconBg = "bg-muted/10 border-border";
+          let textColor = "text-muted-foreground";
+
+          if (ev.type === "confirm") {
+            icon = <CheckCircle2 className="w-3 h-3 text-emerald-500" />;
+            iconBg = "bg-emerald-500/10 border-emerald-500/20";
+            textColor = isLatest ? "text-emerald-500 font-bold" : "text-muted-foreground";
+          } else if (ev.type === "trade") {
+            icon = <Zap className="w-3 h-3 text-indigo-500" />;
+            iconBg = "bg-indigo-500/10 border-indigo-500/20";
+            textColor = isLatest ? "text-indigo-500 font-bold" : "text-muted-foreground";
+          } else if (ev.type === "decision") {
+            icon = <Activity className="w-3 h-3 text-accent" />;
+            iconBg = "bg-accent/10 border-accent/20";
+            textColor = isLatest ? "text-accent font-bold" : "text-muted-foreground";
+          }
+
           return (
-            <div key={ev.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 12px", borderRadius: 12, background: i === 0 ? c.bg : "transparent", border: `1px solid ${i === 0 ? c.color + "25" : "transparent"}`, animation: i === 0 ? "slideIn 0.3s ease" : "none" }}>
-              <span style={{ fontSize: 11, color: t.textSub, fontFamily: "monospace", flexShrink: 0, marginTop: 2 }}>{ev.time}</span>
-              <span style={{ width: 20, height: 20, borderRadius: "50%", background: c.bg, border: `1px solid ${c.color}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: c.color, flexShrink: 0, fontWeight: 700 }}>{c.icon}</span>
-              <span style={{ fontSize: 13, lineHeight: 1.45, color: i === 0 ? t.text : t.textMuted, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{ev.message}</span>
+            <div 
+              key={ev.id} 
+              className={cn(
+                "flex items-start gap-3 p-2.5 rounded-xl transition-all duration-300 border border-transparent",
+                isLatest && "bg-muted/10 border-border animate-in fade-in slide-in-from-top-1 duration-300"
+              )}
+            >
+              <span className="text-[10px] text-muted-foreground font-mono mt-0.5 flex-shrink-0">{ev.time}</span>
+              <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0", iconBg)}>
+                {icon}
+              </div>
+              <span className={cn("text-xs leading-relaxed flex-1", isLatest ? "text-foreground font-semibold" : "text-muted-foreground")}>
+                {ev.message}
+              </span>
             </div>
           );
         })}
@@ -574,35 +676,60 @@ function TimelinePanel({ events, dark }: { events: TimelineEvent[]; dark: boolea
   );
 }
 
-function LatestTxMonitor({ tx, dark }: { tx: Transaction | null; dark: boolean }) {
-  const t = dark ? DARK : LIGHT;
+function LatestTxMonitor({ tx, dark }: { tx: Transaction | null; dark?: boolean }) {
   if (!tx) return (
-    <GlassCard style={{ padding: "24px 26px" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 14 }}>Last Executed Trade</div>
-      <div style={{ fontSize: 13, color: t.textMuted, padding: "24px 20px", textAlign: "center" as const }}>No transactions yet</div>
+    <GlassCard className="p-6">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
+        Last Executed Trade
+      </h4>
+      <div className="text-xs text-muted-foreground py-10 text-center font-medium">
+        No transactions yet
+      </div>
     </GlassCard>
   );
+
   return (
-    <GlassCard style={{ padding: "24px 26px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <PulsingDot color={t.green} />
+    <GlassCard className="p-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <PulsingDot />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase" }}>Last Executed Trade</div>
-            <div style={{ fontSize: 11, color: t.textSub, marginTop: 3, fontWeight: 500 }}>Latest completed autonomous action</div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Last Executed Trade
+            </h4>
+            <p className="text-[9px] text-muted-foreground mt-0.5">Latest completed autonomous action</p>
           </div>
         </div>
-        <span style={{ fontSize: 11, color: t.green, background: t.greenSoft, border: `1px solid ${t.greenGlow}`, padding: "3px 10px", borderRadius: 999, fontWeight: 700 }}>CONFIRMED</span>
+        <span className="font-bold text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 flex items-center gap-0.5">
+          <CheckCircle2 className="w-2.5 h-2.5" /> CONFIRMED
+        </span>
       </div>
-      <div style={{ padding: "18px 20px", borderRadius: 16, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, boxShadow: dark ? `0 4px 16px ${t.accentGlow}` : "none" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: t.text, marginBottom: 8, letterSpacing: "-0.02em" }}>{tx.type} {tx.from} → {tx.to}</div>
-        <div style={{ fontSize: 13.5, color: t.textMuted, marginBottom: 14, fontWeight: 500 }}>amount: <span style={{ fontWeight: 600, color: t.text }}>{tx.amount}</span></div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <a href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 12, color: t.accent, fontFamily: "monospace", textDecoration: "none", fontWeight: 700, borderBottom: `1px dashed ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", position: "relative", zIndex: 1 }}>
-            tx: {shortHash(tx.hash)} ↗
-          </a>
-          <span style={{ fontSize: 11.5, color: t.textSub, fontWeight: 500 }}>{tx.timeAgo}</span>
+
+      <div className="p-4 rounded-xl border border-accent/10 bg-accent/5 shadow-sm shadow-accent/5">
+        <div className="text-sm font-extrabold flex items-center gap-1.5 mb-2 flex-wrap">
+          <span>{tx.type}</span>
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">{tx.from}</span>
+          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent">{tx.to}</span>
+        </div>
+        <div className="text-xs text-muted-foreground mb-3 font-semibold">
+          amount: <span className="text-foreground font-bold font-mono">{tx.amount}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-1.5">
+            <a 
+              href={txUrl(tx.hash)} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-accent hover:underline font-mono inline-flex items-center gap-1"
+            >
+              tx: {shortHash(tx.hash)} <ExternalLink className="w-3 h-3" />
+            </a>
+            <CopyButton text={tx.hash.replace(/\.\.\./g, "")} />
+          </div>
+          <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+            <Clock className="w-3 h-3" /> {tx.timeAgo}
+          </span>
         </div>
       </div>
     </GlassCard>
@@ -619,26 +746,20 @@ function ChartTooltipCard({
   active?: boolean;
   payload?: Array<{ value: number }>;
   label?: string;
-  dark: boolean;
+  dark?: boolean;
   changeText: string;
 }) {
-  const t = dark ? DARK : LIGHT;
   if (!active || !payload?.length) return null;
+  const isUp = !changeText.startsWith("-");
 
   return (
-    <div
-      style={{
-        background: t.tooltipBg,
-        border: `1px solid ${t.cardBorder}`,
-        borderRadius: 12,
-        padding: "10px 12px",
-        boxShadow: `0 12px 30px ${dark ? "rgba(0,0,0,0.28)" : "rgba(37,99,235,0.14)"}`,
-        minWidth: 132,
-      }}
-    >
-      <div style={{ fontSize: 10, color: t.textSub, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 15, color: t.text, fontWeight: 700 }}>{formatPriceLabel(payload[0].value)}</div>
-      <div style={{ fontSize: 11, color: changeText.startsWith("-") ? t.red : t.green, marginTop: 4, fontWeight: 600 }}>{changeText} today</div>
+    <div className="bg-card border border-border rounded-xl p-3 shadow-xl shadow-background/50 min-w-[140px] backdrop-blur-md">
+      <div className="text-[10px] text-muted-foreground font-medium mb-1">{label}</div>
+      <div className="text-sm font-extrabold font-mono text-foreground">{formatPriceLabel(payload[0].value)}</div>
+      <div className={cn("text-[10px] font-bold mt-1.5 flex items-center gap-0.5", isUp ? "text-emerald-500" : "text-destructive")}>
+        {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+        <span>{changeText} today</span>
+      </div>
     </div>
   );
 }
@@ -647,7 +768,6 @@ function ChartTooltipCard({
 
 export default function XpulseDashboard() {
   const [dark, setDark]                     = useState(false);
-  const [viewportWidth, setViewportWidth]   = useState(1440);
   const [marketData, setMarketData]         = useState<CoinData[]>(FALLBACK_MARKET);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState<number | null>(null);
   const [marketGlobal, setMarketGlobal]     = useState<MarketGlobalData | null>(null);
@@ -667,8 +787,8 @@ export default function XpulseDashboard() {
   const [agentRunning, setAgentRunning]     = useState(false);
   const [portfolioUpdatedAt, setPortfolioUpdatedAt] = useState<number | null>(null);
   const nextId                              = useRef(1);
-  const t                                   = dark ? DARK : LIGHT;
   const prevStatusRef                       = useRef<AgentStatus | null>(null);
+
   const pushTimelineEvent = useCallback((type: TimelineEvent["type"], message: string, time: string) => {
     setTimeline((prev) => {
       const duplicate = prev.find((event, index) => index < 4 && event.type === type && event.message === message);
@@ -682,18 +802,29 @@ export default function XpulseDashboard() {
     setMounted(true);
     const saved = localStorage.getItem("xpulse-theme");
     if (saved) {
-      setDark(saved === "dark");
+      const isDark = saved === "dark";
+      setDark(isDark);
+      if (isDark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
     } else {
       setDark(false);
+      document.documentElement.classList.remove("dark");
     }
   }, []);
-  useEffect(() => { if (mounted) localStorage.setItem("xpulse-theme", dark ? "dark" : "light"); }, [dark, mounted]);
+
   useEffect(() => {
-    const updateViewport = () => setViewportWidth(window.innerWidth);
-    updateViewport();
-    window.addEventListener("resize", updateViewport);
-    return () => window.removeEventListener("resize", updateViewport);
-  }, []);
+    if (mounted) {
+      localStorage.setItem("xpulse-theme", dark ? "dark" : "light");
+      if (dark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, [dark, mounted]);
 
   // ── Fetch market data ───────────────────────────────────────────────────────
   const fetchMarket = useCallback(async () => {
@@ -721,9 +852,10 @@ export default function XpulseDashboard() {
 
   const fetchChart = useCallback(async () => {
     setChartLoading(true);
+    const coinSymbol = activeTab;
+    const coinId = COIN_IDS[coinSymbol] ?? COIN_IDS.btc;
     try {
-      const coin = COIN_IDS[activeTab] ?? COIN_IDS.btc;
-      const res = await fetch(`/api/chart?coin=${coin}`, { cache: "no-store" });
+      const res = await fetch(`/api/chart?coin=${coinId}`, { cache: "no-store" });
       const data = await res.json() as ChartResponse;
       if (!res.ok) {
         throw new Error(data.error || `Chart request failed with status ${res.status}`);
@@ -731,13 +863,25 @@ export default function XpulseDashboard() {
       if (Array.isArray(data.chart) && data.chart.length > 0) {
         setChartData(data.chart);
         setChartUpdatedAt(Date.now());
+      } else {
+        throw new Error("Empty chart data");
       }
     } catch {
-      // Keep previous chart on network error
+      const coinMeta = marketData.find((coin) => coin.symbol === coinSymbol);
+      if (coinMeta) {
+        const fallbackData = generateFallbackChart(coinMeta.current_price, coinMeta.price_change_percentage_24h);
+        setChartData(fallbackData);
+        setChartUpdatedAt(Date.now());
+      } else {
+        const staticCoin = FALLBACK_MARKET.find((coin) => coin.symbol === coinSymbol) ?? FALLBACK_MARKET[0];
+        const fallbackData = generateFallbackChart(staticCoin.current_price, staticCoin.price_change_percentage_24h);
+        setChartData(fallbackData);
+        setChartUpdatedAt(Date.now());
+      }
     } finally {
       setChartLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, marketData]);
 
   // ── Fetch wallet portfolio balances (server-side to avoid CORS) ───────────
   const fetchPortfolio = useCallback(async () => {
@@ -882,7 +1026,7 @@ export default function XpulseDashboard() {
     const now = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
     pushTimelineEvent("info", "Generating AI insight via Groq LLaMA 3.3", now);
     try {
-      const payload = snapshot ?? marketData;
+      const payload = (Array.isArray(snapshot) && snapshot.length > 0) ? snapshot : marketData;
       const res  = await fetch("/api/insight", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketData: payload }) });
       const data = await res.json() as InsightResponse;
       if (!res.ok) {
@@ -925,7 +1069,10 @@ export default function XpulseDashboard() {
   }, [fetchChart, fetchMarket, fetchStatus, fetchTransactions, fetchPortfolio]);
 
   // ── Derived values ──────────────────────────────────────────────────────────
-  const topGainer    = [...marketData].sort((a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h)[0];
+  const isLoadingStats = marketData.length === 0;
+  const topGainer    = [...marketData]
+    .filter((coin) => coin.price_change_percentage_24h >= 0)
+    .sort((a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h)[0];
   const topLoser     = [...marketData]
     .filter((coin) => coin.price_change_percentage_24h < 0)
     .sort((a, b) => a.price_change_percentage_24h - b.price_change_percentage_24h)[0];
@@ -938,38 +1085,14 @@ export default function XpulseDashboard() {
   const totalMarketCapDelta = marketGlobal?.market_cap_change_percentage_24h_usd ?? 0;
   const formattedMarketCap = formatCompactUsd(totalMarketCap);
   const formattedMarketCapDelta = `${totalMarketCapDelta >= 0 ? "+" : ""}${totalMarketCapDelta.toFixed(2)}% today`;
-  const isTablet = viewportWidth <= 1180;
-  const isMobile = viewportWidth <= 768;
-  const statsGridColumns = isMobile ? "1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))";
-  const insightGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "minmax(0, 1fr) 320px";
-  const marketGridColumns = isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : "280px minmax(0, 1fr)";
-  const headerLayout = isTablet ? "column" : "row";
-  const mainPadding = isMobile ? "24px 16px 36px" : isTablet ? "36px 32px 48px" : "40px 48px 64px";
-  const pageTransition = "background 0.3s ease, color 0.3s ease";
   const selectedCoin = marketData.find((coin) => coin.symbol === activeTab) ?? marketData[0];
   const latestChartPoint = chartData[chartData.length - 1] ?? null;
   const chartTrendUp = (selectedCoin?.price_change_percentage_24h ?? 0) >= 0;
-  const chartStroke = t.accent;
-  const chartFillTop = "rgba(59, 130, 246, 0.16)";
-  const chartFillBottom = "rgba(59, 130, 246, 0.01)";
   const chartDeltaText = `${chartTrendUp ? "+" : ""}${(selectedCoin?.price_change_percentage_24h ?? 0).toFixed(2)}%`;
   const chartRangeText = selectedCoin ? `${formatPriceLabel(selectedCoin.current_price * 0.985)} - ${formatPriceLabel(selectedCoin.current_price * 1.015)}` : "Waiting for range";
 
-  const cssVars = {
-    "--bg": t.bg,
-    "--card": t.card,
-    "--card-border": t.cardBorder,
-    "--card-border-hover": t.cardBorderHover,
-    "--card-shadow": t.cardShadow,
-    "--card-shadow-hover": t.cardShadowHover,
-    "--text": t.text,
-    "--text-muted": t.textMuted,
-    "--text-sub": t.textSub,
-    "--accent": t.accent,
-  } as React.CSSProperties;
-
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", transition: pageTransition, overflowX: "hidden", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", ...cssVars }}>
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-300 overflow-x-hidden pb-12 selection:bg-accent/20">
       <style>{`
         @keyframes ping { 75%,100%{transform:scale(2);opacity:0} }
         @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
@@ -980,253 +1103,251 @@ export default function XpulseDashboard() {
       `}</style>
 
       {/* ── Header ── */}
-      <header style={{ 
-        display: "flex", 
-        flexDirection: headerLayout, 
-        alignItems: isTablet ? "stretch" : "center", 
-        justifyContent: "space-between", 
-        gap: isTablet ? 16 : 0, 
-        padding: isMobile ? "16px 20px" : isTablet ? "20px 32px" : "18px 48px", 
-        background: t.headerBg, 
-        backdropFilter: "blur(12px)", 
-        WebkitBackdropFilter: "blur(12px)", 
-        borderBottom: `1px solid ${t.cardBorder}`, 
-        position: "sticky", 
-        top: 0, 
-        zIndex: 100,
-        boxShadow: dark ? "none" : "0 1px 3px rgba(0, 0, 0, 0.02)"
-      }}>
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${t.accent}, ${t.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, color: "#fff", boxShadow: `0 4px 16px ${t.accentGlow}` }}>X</div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "-0.03em" }}>Xpulse AI</div>
-            <div style={{ fontSize: 10, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 600, marginTop: 2 }}>Autonomous · X Layer Mainnet</div>
-          </div>
-        </div>
-
-        {/* Chain badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: isTablet ? "flex-start" : "center" }}>
-          <Tooltip>
-            <TooltipTrigger>
-              <Badge variant="outline" className="rounded-full px-3.5 py-1.5 font-semibold text-xs cursor-help transition-colors" style={{ borderColor: t.accentGlow, background: t.accentSoft, color: t.accent }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.accent, display: "inline-block", marginRight: 6 }} />
-                X Layer Mainnet
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent className="bg-slate-900 text-white rounded-lg p-2 text-xs shadow-md border-0">
-              Chain ID 196 (OKX Layer 2 Blockchain)
-            </TooltipContent>
-          </Tooltip>
-
-          <Badge variant="outline" className="rounded-full px-3.5 py-1.5 font-semibold text-xs transition-colors" style={{ borderColor: t.purpleGlow, background: t.purpleSoft, color: t.purple }}>
-            ⚙ Onchain OS
-          </Badge>
-
-          {agentStatus && (
-            <Badge variant="outline" className="rounded-full px-3.5 py-1.5 font-medium text-xs transition-colors" style={{ borderColor: t.cardBorder, background: dark ? "rgba(255,255,255,0.04)" : "#ffffff", color: t.textMuted }}>
-              {agentStatus.cycleCount} cycles
-            </Badge>
-          )}
-        </div>
-
-        {/* Right: Agent status + theme toggle */}
-        <div style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", gap: 12, flexDirection: isMobile ? "column" : "row", justifyContent: isTablet ? "space-between" : "flex-end" }}>
-          <div style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: 12, 
-            background: isActive ? t.greenSoft : t.amberSoft, 
-            border: `1px solid ${isActive ? t.greenGlow : `${t.amber}33`}`, 
-            borderRadius: 14, 
-            padding: "10px 18px", 
-            width: isMobile ? "100%" : "auto",
-            boxShadow: isActive ? `0 4px 12px ${t.greenGlow}` : "none",
-            transition: "all 0.3s ease"
-          }}>
-            {isActive ? <PulsingDot color={t.green} /> : <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.amber, display: "inline-block" }} />}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? t.green : t.amber, letterSpacing: "0.02em" }}>
-                {isActive ? "AGENT RUNNING" : "AGENT IDLE"}
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border shadow-sm px-4 py-3 md:px-8 lg:px-12">
+        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+          {/* Top bar on mobile / Left side on desktop */}
+          <div className="flex items-center justify-between md:justify-start gap-4">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-black border border-zinc-800 flex items-center justify-center shadow-md shadow-black/20 transition-transform duration-300 hover:scale-105">
+                <svg className="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 4H8L12 10L16 4H20L14 12L20 20H16L12 14L8 20H4L10 12L4 4Z" fill="currentColor" stroke="currentColor" strokeWidth="0.5" strokeLinejoin="round" />
+                </svg>
               </div>
-              <div style={{ fontSize: 10, color: t.textSub, marginTop: 2, fontWeight: 500 }}>
-                Cycle completed: {lastTradeAgo}
+              <div>
+                <h1 className="text-sm font-extrabold tracking-tight">Xpulse AI</h1>
+                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
+                  Autonomous · X Layer
+                </p>
               </div>
             </div>
+            
+            {/* Mobile-only action buttons (Run & Theme) */}
+            <div className="flex items-center gap-1.5 md:hidden">
+              <button
+                onClick={runAgent}
+                disabled={agentRunning}
+                className={cn(
+                  "inline-flex items-center justify-center p-2 rounded-xl text-white shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-50",
+                  agentRunning ? "bg-muted text-muted-foreground" : "bg-gradient-to-r from-accent to-indigo-600"
+                )}
+                title="Run Agent"
+              >
+                <Zap className={cn("w-4 h-4", agentRunning && "animate-pulse")} />
+              </button>
+              <button 
+                onClick={() => setDark(d => !d)} 
+                className="inline-flex items-center justify-center p-2 rounded-xl border border-border bg-card text-foreground transition-all hover:bg-muted/50 active:scale-95"
+                title="Toggle Theme"
+              >
+                {dark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 10, width: isMobile ? "100%" : "auto" }}>
-            <button
-              onClick={runAgent}
-              disabled={agentRunning}
-              style={{
-                background: agentRunning ? t.accentSoft : `linear-gradient(135deg, ${t.accent}, ${t.purple})`,
-                border: "none",
-                borderRadius: 12,
-                padding: isMobile ? "12px 20px" : "10px 20px",
-                cursor: agentRunning ? "not-allowed" : "pointer",
-                color: "#fff",
-                fontSize: isMobile ? 14 : 13,
-                fontWeight: 600,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                boxShadow: agentRunning ? "none" : `0 4px 16px ${t.accentGlow}`,
-                flex: isMobile ? 1 : "initial",
-              }}
-              className="hover:scale-[1.02] hover:brightness-105 active:scale-[0.98]"
-            >
-              <span style={{ fontSize: 14, animation: agentRunning ? "spin 1s linear infinite" : "none", display: "inline-block", fontWeight: 700 }}>
-                {agentRunning ? "◌" : "⚡"}
-              </span>
-              {agentRunning ? "Running..." : "Run Agent"}
-            </button>
-            <button 
-              onClick={() => setDark(d => !d)} 
-              style={{ 
-                background: dark ? "rgba(255,255,255,0.06)" : "#ffffff", 
-                border: `1px solid ${t.cardBorder}`, 
-                borderRadius: 12, 
-                padding: isMobile ? "12px 16px" : "10px 16px", 
-                cursor: "pointer", 
-                display: "inline-flex", 
-                alignItems: "center", 
-                justifyContent: "center", 
-                gap: 8, 
-                color: t.text, 
-                fontSize: isMobile ? 14 : 13, 
-                fontWeight: 600,
-                boxShadow: dark ? "none" : "0 1px 2px rgba(0, 0, 0, 0.05)",
-                transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                flex: isMobile ? 1 : "initial" 
-              }}
-              className="hover:bg-slate-50 active:scale-[0.98]"
-            >
-              <span style={{ fontSize: 14 }}>{dark ? "☀️" : "🌙"}</span>
-              <span>{dark ? "Light Mode" : "Dark Mode"}</span>
-            </button>
+
+          {/* Badges - Middle on desktop, wrapped on mobile */}
+          <div className="flex items-center gap-2 flex-wrap md:justify-center">
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="outline" className="rounded-full px-2.5 py-0.5 font-semibold text-[10px] border-accent/20 bg-accent/5 text-accent flex items-center gap-1 cursor-help">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                  X Layer Mainnet
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="bg-popover text-popover-foreground border border-border rounded-lg p-2 text-xs shadow-md">
+                Chain ID 196 (OKX Layer 2)
+              </TooltipContent>
+            </Tooltip>
+
+            <Badge variant="outline" className="rounded-full px-2.5 py-0.5 font-semibold text-[10px] border-indigo-500/20 bg-indigo-500/5 text-indigo-500 flex items-center gap-0.5">
+               <Shield className="w-3 h-3" /> Onchain OS
+            </Badge>
+
+            {agentStatus ? (
+              <Badge variant="outline" className="rounded-full px-2.5 py-0.5 font-medium text-[10px] border-border bg-card text-muted-foreground font-mono">
+                {agentStatus.cycleCount} cycles
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="rounded-full px-2.5 py-0.5 font-medium text-[10px] border-border bg-card text-muted-foreground/50 font-mono flex items-center gap-1">
+                <RefreshCw className="w-2.5 h-2.5 animate-spin text-accent" />
+                <span>loading cycles</span>
+              </Badge>
+            )}
+          </div>
+
+          {/* Right: Desktop actions / Mobile status pill */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Status Indicator */}
+            <div className={cn(
+              "flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all duration-300 w-full sm:w-auto",
+              isActive ? "bg-emerald-500/5 border-emerald-500/10 shadow-sm shadow-emerald-500/5" : "bg-amber-500/5 border-amber-500/10"
+            )}>
+              {isActive ? <PulsingDot /> : <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />}
+              <div className="flex-1 min-w-0">
+                <div className={cn("text-[9px] font-bold tracking-wider uppercase leading-none", isActive ? "text-emerald-500" : "text-amber-500")}>
+                  {isActive ? "AGENT ACTIVE" : "AGENT IDLE"}
+                </div>
+                <div className="text-[8px] text-muted-foreground font-semibold mt-0.5 leading-none">
+                  Last: {lastTradeAgo}
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop-only action buttons */}
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={runAgent}
+                disabled={agentRunning}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-xs text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:brightness-105 active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none",
+                  agentRunning ? "bg-muted border border-border text-muted-foreground" : "bg-gradient-to-r from-accent to-indigo-600 shadow-accent/15"
+                )}
+              >
+                <Zap className={cn("w-3.5 h-3.5", agentRunning && "animate-pulse")} />
+                <span>{agentRunning ? "Running..." : "Run Agent"}</span>
+              </button>
+              <button 
+                onClick={() => setDark(d => !d)} 
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted/30 text-foreground text-xs font-bold shadow-sm transition-all duration-300 active:scale-[0.98]"
+              >
+                {dark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5" />}
+                <span>{dark ? "Light" : "Dark"}</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main style={{ padding: mainPadding, maxWidth: 1440, margin: "0 auto" }}>
+      <main className="px-4 py-6 md:px-8 lg:px-12 max-w-[1440px] mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
 
         {/* ── Stats row ── */}
-        <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: 24, marginBottom: 32, animation: "fadeUp 0.5s ease" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-            dark={dark}
             label="Total Market Cap"
             value={formattedMarketCap}
             delta={formattedMarketCapDelta}
             neg={totalMarketCapDelta < 0}
+            loading={isLoadingStats}
           />
           <StatCard
-            dark={dark}
             label="Top Gainer"
             value={topGainer?.symbol.toUpperCase() ?? "—"}
-            delta={`${topGainer && topGainer.price_change_percentage_24h >= 0 ? "+" : ""}${topGainer?.price_change_percentage_24h.toFixed(2) ?? "0.00"}%`}
-            neg={(topGainer?.price_change_percentage_24h ?? 0) < 0}
+            delta={topGainer ? `+${topGainer.price_change_percentage_24h.toFixed(2)}%` : "—"}
+            neg={topGainer ? false : undefined}
+            loading={isLoadingStats}
           />
           <StatCard
-            dark={dark}
             label="Top Loser"
-            value={topLoser?.symbol.toUpperCase() ?? "No losers today"}
-            delta={topLoser ? `${topLoser.price_change_percentage_24h.toFixed(2)}%` : "All tracked assets are green"}
-            neg={Boolean(topLoser)}
+            value={topLoser?.symbol.toUpperCase() ?? "—"}
+            delta={topLoser ? `${topLoser.price_change_percentage_24h.toFixed(2)}%` : "—"}
+            neg={topLoser ? true : undefined}
+            loading={isLoadingStats}
           />
           {/* Agent Portfolio card */}
-          <GlassCard style={{ padding: "24px 28px" }}>
-            <div style={{ fontSize: 11, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10, fontWeight: 600 }}>Agent Portfolio</div>
-            <div style={{ fontSize: 11, color: t.textSub, marginBottom: 12, fontWeight: 500 }}>{formatUpdatedAt(portfolioUpdatedAt)}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: t.textMuted, fontWeight: 500 }}>OKB</span>
-                <span style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>
-                  {portfolio.okb.toFixed(4)}
-                  <span style={{ fontSize: 11, color: t.textSub, marginLeft: 4, fontWeight: 500 }}>(${portfolio.okbUsd.toFixed(2)})</span>
-                </span>
+          <GlassCard className="p-6 transition-all duration-300 hover:border-accent/30 flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">Agent Portfolio</div>
+              <div className="text-[10px] text-muted-foreground font-medium mb-3 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-emerald-500" />
+                <span>{formatUpdatedAt(portfolioUpdatedAt)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: t.textMuted, fontWeight: 500 }}>WOKB</span>
-                <span style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>
-                  {portfolio.wokb.toFixed(4)}
-                  <span style={{ fontSize: 11, color: t.textSub, marginLeft: 4, fontWeight: 500 }}>(${portfolio.wokbUsd.toFixed(2)})</span>
-                </span>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground font-semibold">OKB</span>
+                  <span className="text-xs font-bold font-mono">
+                    {portfolio.okb.toFixed(4)}
+                    <span className="text-[10px] text-muted-foreground font-medium ml-1">(${portfolio.okbUsd.toFixed(2)})</span>
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground font-semibold">WOKB</span>
+                  <span className="text-xs font-bold font-mono">
+                    {portfolio.wokb.toFixed(4)}
+                    <span className="text-[10px] text-muted-foreground font-medium ml-1">(${portfolio.wokbUsd.toFixed(2)})</span>
+                  </span>
+                </div>
               </div>
             </div>
-            <div style={{ borderTop: `1px solid ${t.cardBorder}`, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: t.textSub, fontWeight: 500 }}>Total Value</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: t.green }}>${portfolio.totalUsd.toFixed(2)}</span>
+            <div className="border-t border-border mt-4 pt-3.5 flex justify-between items-center">
+              <span className="text-xs text-muted-foreground font-semibold">Total Value</span>
+              <span className="text-base font-extrabold text-emerald-500 font-mono">${portfolio.totalUsd.toFixed(2)}</span>
             </div>
           </GlassCard>
         </div>
 
         {/* ── AI Insight + Latest TX ── */}
-        <div style={{ display: "grid", gridTemplateColumns: insightGridColumns, alignItems: "stretch", gap: 24, marginBottom: 32, animation: "fadeUp 0.5s ease 0.1s both" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 24, minHeight: "100%", height: "100%" }}>
-            <AIInsightPanel insight={insight} loading={insightLoading} error={insightError} updatedAt={insightUpdatedAt} onRefresh={fetchInsight} dark={dark} />
-            <CycleTraceCard status={agentStatus} dark={dark} />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] items-start gap-6">
+          <div className="flex flex-col gap-6">
+            <AIInsightPanel insight={insight} loading={insightLoading} error={insightError} updatedAt={insightUpdatedAt} onRefresh={fetchInsight} />
+            <CycleTraceCard status={agentStatus} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 24, minHeight: "100%" }}>
-            <TimelinePanel events={timeline} dark={dark} />
-            <QuantRuleCard dark={dark} />
-            <LatestTxMonitor tx={latestTx} dark={dark} />
+          <div className="flex flex-col gap-6">
+            <TimelinePanel events={timeline} />
+            <QuantRuleCard />
+            <LatestTxMonitor tx={latestTx} />
           </div>
         </div>
 
         {/* ── Market + Chart + Timeline ── */}
-        <div style={{ display: "grid", gridTemplateColumns: marketGridColumns, gap: 24, marginBottom: 32, animation: "fadeUp 0.5s ease 0.2s both" }}>
-          <GlassCard style={{ padding: "24px 26px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 14 }}>Market Movers</div>
-            <div style={{ fontSize: 11, color: t.textSub, marginBottom: 14, fontWeight: 500 }}>{formatUpdatedAt(marketUpdatedAt)}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {marketData.map(c => <MarketMoverCard key={c.id} coin={c} dark={dark} />)}
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+          <GlassCard className="p-6 flex flex-col gap-4">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Market Movers</h4>
+              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{formatUpdatedAt(marketUpdatedAt)}</p>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {marketData.map(c => <MarketMoverCard key={c.id} coin={c} />)}
             </div>
           </GlassCard>
 
-          <GlassCard style={{ padding: "24px 26px" }}>
-            <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0, marginBottom: 18 }}>
+          <GlassCard className="p-6 flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 3 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>Price Chart</div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h4 className="text-sm font-bold text-foreground">Price Chart</h4>
                   {selectedCoin && (
-                    <Badge variant="outline" style={{ borderColor: chartTrendUp ? t.greenGlow : `${t.red}33`, background: chartTrendUp ? t.greenSoft : t.redSoft, color: chartTrendUp ? t.green : t.red }} className="font-bold text-xs px-2.5 py-0.5 rounded-full">
-                      {selectedCoin.symbol.toUpperCase()} {chartDeltaText}
+                    <Badge variant="outline" className={cn(
+                      "font-bold text-[10px] px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm",
+                      chartTrendUp ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500" : "border-destructive/20 bg-destructive/10 text-destructive"
+                    )}>
+                      {chartTrendUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                      <span>{selectedCoin.symbol.toUpperCase()} {chartDeltaText}</span>
                     </Badge>
                   )}
                 </div>
-                <div style={{ fontSize: 11, color: t.textSub, marginTop: 2, fontWeight: 500 }}>24H Performance · {formatUpdatedAt(chartUpdatedAt)}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", marginTop: 14 }}>
+                <div className="text-[10px] text-muted-foreground font-medium min-h-[15px] flex items-center">
+                  {chartLoading ? (
+                    <span className="flex items-center gap-1.5 text-accent animate-pulse">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Refreshing data...</span>
+                    </span>
+                  ) : (
+                    <span>{formatUpdatedAt(chartUpdatedAt)}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-6 flex-wrap mt-3">
                   <div>
-                    <div style={{ fontSize: 11, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Latest Price</div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: t.text, letterSpacing: "-0.03em", marginTop: 4 }}>
+                    <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Latest Price</span>
+                    <div className="text-2xl font-extrabold tracking-tight font-mono mt-0.5">
                       {formatPriceLabel(latestChartPoint?.price ?? selectedCoin?.current_price ?? 0)}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>24H Trading Range</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: t.textMuted, marginTop: 8 }}>
+                    <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">24H Trading Range</span>
+                    <div className="text-xs font-bold font-mono text-muted-foreground mt-1.5">
                       {chartRangeText}
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* Shadcn Tabs integration */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-fit">
-                <TabsList className="bg-muted p-[3px] rounded-lg flex flex-wrap gap-1">
+                <TabsList className="bg-muted p-[3px] rounded-lg flex flex-wrap gap-1 border border-border/50">
                   {["btc", "eth", "sol", "link", "okb"].map(tab => (
                     <TabsTrigger
                       key={tab}
                       value={tab}
-                      className="px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all"
-                      style={{
-                        color: activeTab === tab ? t.accent : t.textMuted,
-                        background: activeTab === tab ? t.accentSoft : "transparent",
-                        borderColor: activeTab === tab ? t.accentGlow : "transparent",
-                        borderWidth: "1px",
-                      }}
+                      className="px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all data-[active]:!bg-background data-[active]:!text-accent data-[active]:!shadow-sm border border-transparent"
                     >
                       {tab.toUpperCase()}
                     </TabsTrigger>
@@ -1235,152 +1356,137 @@ export default function XpulseDashboard() {
               </Tabs>
             </div>
             
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                <defs>
-                  <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor={chartFillTop} stopOpacity={1} />
-                    <stop offset="100%" stopColor={chartFillBottom} stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke={t.gridStroke} strokeDasharray="3 5" vertical={false} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: t.textSub }} axisLine={false} tickLine={false} interval={3} />
-                <YAxis tick={{ fontSize: 10, fill: t.textSub }} axisLine={false} tickLine={false} width={68} tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${v.toFixed(2)}`} domain={["dataMin - 200", "dataMax + 200"]} />
-                <RechartsTooltip content={<ChartTooltipCard dark={dark} changeText={chartDeltaText} />} cursor={{ stroke: chartStroke, strokeOpacity: 0.18, strokeDasharray: "4 4" }} />
-                <Area
-                  type="monotone"
-                  dataKey="price"
-                  stroke={chartStroke}
-                  strokeWidth={2.6}
-                  fill="url(#cg)"
-                  dot={false}
-                  activeDot={{ r: 5, stroke: chartStroke, strokeWidth: 2, fill: dark ? "#0b1120" : "#ffffff" }}
-                  animationDuration={600}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-            {chartLoading && (
-              <div style={{ fontSize: 11, color: t.textSub, marginTop: 8, fontWeight: 500 }}>Refreshing chart data...</div>
-            )}
+            {/* Calculate dynamic chart Y-axis domain */}
+            {(() => {
+              const prices = chartData.map((d) => d.price);
+              const minPrice = prices.length > 0 ? Math.min(...prices) : (selectedCoin?.current_price ?? 100) * 0.95;
+              const maxPrice = prices.length > 0 ? Math.max(...prices) : (selectedCoin?.current_price ?? 100) * 1.05;
+              const priceRange = maxPrice - minPrice;
+              const padding = priceRange > 0 ? priceRange * 0.15 : (minPrice * 0.02);
+              const domainMin = Math.max(0, minPrice - padding);
+              const domainMax = maxPrice + padding;
+
+              return (
+                <div className="w-full h-[260px] mt-4 font-mono text-xs">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                      <defs>
+                        <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.16} />
+                          <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.01} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="var(--border)" strokeDasharray="3 5" vertical={false} />
+                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} interval={3} />
+                      <YAxis tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={68} tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${v.toFixed(2)}`} domain={[domainMin, domainMax]} />
+                      <RechartsTooltip content={<ChartTooltipCard dark={dark} changeText={chartDeltaText} />} cursor={{ stroke: "var(--accent)", strokeOpacity: 0.18, strokeDasharray: "4 4" }} />
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke="var(--accent)"
+                        strokeWidth={2.5}
+                        fill="url(#cg)"
+                        dot={false}
+                        activeDot={{ r: 4.5, stroke: "var(--accent)", strokeWidth: 1.5, fill: "var(--card)" }}
+                        animationDuration={600}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
           </GlassCard>
         </div>
 
-        {/* ── Transaction Feed — REAL TXS ONLY ── */}
-        <div style={{ animation: "fadeUp 0.5s ease 0.3s both" }}>
-          <GlassCard style={{ overflow: "hidden", padding: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${t.cardBorder}` }}>
+        {/* ── Transaction Feed ── */}
+        <div className="animate-in fade-in duration-500 delay-150">
+          <GlassCard className="overflow-hidden p-0">
+            <div className="flex items-center justify-between p-5 border-b border-border">
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>Onchain Activity</div>
-                <div style={{ fontSize: 12, color: t.textSub, marginTop: 2, fontWeight: 500 }}>
+                <h4 className="text-sm font-bold text-foreground">Onchain Activity</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Transactions executed by the AI agent via okx-agentic-wallet on X Layer Mainnet
-                </div>
+                </p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 11, color: t.textSub, fontWeight: 500 }}>auto-refresh 5s</div>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.green, animation: "ping 2s infinite" }} />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground font-medium">auto-refresh 5s</span>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
               </div>
             </div>
             
-            {/* Shadcn UI Table component refactor */}
             <ShadcnTable className="w-full">
-              <ShadcnTableHeader className="border-b" style={{ borderColor: t.cardBorder }}>
-                <ShadcnTableRow className="hover:bg-transparent">
-                  {isMobile ? (
-                    <>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider pl-6" style={{ color: t.textSub }}>TX Hash</ShadcnTableHead>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider text-right pr-6" style={{ color: t.textSub }}>Status</ShadcnTableHead>
-                    </>
-                  ) : (
-                    <>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider pl-6" style={{ color: t.textSub }}>TX Hash</ShadcnTableHead>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider" style={{ color: t.textSub }}>Skill</ShadcnTableHead>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider" style={{ color: t.textSub }}>Route</ShadcnTableHead>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider" style={{ color: t.textSub }}>Amount</ShadcnTableHead>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider" style={{ color: t.textSub }}>Status</ShadcnTableHead>
-                      <ShadcnTableHead className="font-semibold text-xs uppercase tracking-wider pr-6" style={{ color: t.textSub }}>Time</ShadcnTableHead>
-                    </>
-                  )}
+              <ShadcnTableHeader className="bg-muted/10">
+                <ShadcnTableRow className="hover:bg-transparent border-b border-border">
+                  <ShadcnTableHead className="font-bold text-[10px] uppercase tracking-wider pl-6 text-muted-foreground h-10">TX Hash</ShadcnTableHead>
+                  <ShadcnTableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground h-10 hidden md:table-cell">Skill</ShadcnTableHead>
+                  <ShadcnTableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground h-10 hidden md:table-cell">Route</ShadcnTableHead>
+                  <ShadcnTableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground h-10 hidden md:table-cell">Amount</ShadcnTableHead>
+                  <ShadcnTableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground h-10">Status</ShadcnTableHead>
+                  <ShadcnTableHead className="font-bold text-[10px] uppercase tracking-wider pr-6 text-muted-foreground h-10 hidden md:table-cell">Time</ShadcnTableHead>
                 </ShadcnTableRow>
               </ShadcnTableHeader>
               <ShadcnTableBody>
                 {transactions.length === 0 ? (
                   <ShadcnTableRow>
-                    <ShadcnTableCell colSpan={isMobile ? 2 : 6} className="text-center py-10" style={{ color: t.textMuted }}>
+                    <ShadcnTableCell colSpan={6} className="text-center py-12 text-xs text-muted-foreground font-medium">
                       No transactions yet. Run the agent to see real onchain activity.
                     </ShadcnTableCell>
                   </ShadcnTableRow>
                 ) : (
                   transactions.map((tx, i) => {
-                    const statusColor = tx.status === "confirmed" ? t.green : t.amber;
-                    const statusBg = tx.status === "confirmed" ? t.greenSoft : "rgba(245, 158, 11, 0.08)";
-                    const statusBorder = tx.status === "confirmed" ? "rgba(16, 185, 129, 0.2)" : "rgba(245, 158, 11, 0.2)";
+                    const statusColor = tx.status === "confirmed" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500" : "border-amber-500/20 bg-amber-500/10 text-amber-500";
                     const isLatest = i === 0;
 
                     return (
                       <ShadcnTableRow
                         key={tx.hash}
-                        className="transition-colors border-b"
-                        style={{
-                          borderColor: t.cardBorder,
-                          background: isLatest ? (dark ? "rgba(59, 130, 246, 0.04)" : "rgba(59, 130, 246, 0.02)") : "transparent",
-                        }}
-                      >
-                        {isMobile ? (
-                          <>
-                            <ShadcnTableCell className="py-4 pl-6">
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-                                <a
-                                  href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
-                                  style={{ color: t.accent, fontFamily: "monospace", fontSize: 12, textDecoration: "none", borderBottom: `1px dashed ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", fontWeight: 600 }}
-                                >
-                                  {shortHash(tx.hash)} ↗
-                                </a>
-                                <span style={{ color: t.text, fontWeight: 600, fontSize: 12 }}>{tx.from} → {tx.to}</span>
-                                <span style={{ color: t.textSub, fontSize: 11 }}>{tx.amount} · {tx.timeAgo}</span>
-                              </div>
-                            </ShadcnTableCell>
-                            <ShadcnTableCell className="py-4 pr-6 text-right">
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                                <Badge variant="outline" style={{ borderColor: "rgba(99, 102, 241, 0.15)", background: t.purpleSoft, color: t.purple }} className="font-bold text-[10px] px-2 py-0.5 rounded-md">
-                                  {tx.type}
-                                </Badge>
-                                <Badge variant="outline" style={{ borderColor: statusBorder, background: statusBg, color: statusColor }} className="font-bold text-[10px] px-2 py-0.5 rounded-md">
-                                  {tx.status}
-                                </Badge>
-                              </div>
-                            </ShadcnTableCell>
-                          </>
-                        ) : (
-                          <>
-                            <ShadcnTableCell className="py-4 pl-6">
-                              <a
-                                href={txUrl(tx.hash)} target="_blank" rel="noopener noreferrer"
-                                style={{ color: t.accent, fontFamily: "monospace", fontSize: 12, textDecoration: "none", borderBottom: `1px dashed ${t.accentGlow}`, paddingBottom: 1, display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content", fontWeight: 600 }}
-                              >
-                                {shortHash(tx.hash)} ↗
-                              </a>
-                            </ShadcnTableCell>
-                            <ShadcnTableCell className="py-4">
-                              <Badge variant="outline" style={{ borderColor: "rgba(99, 102, 241, 0.15)", background: t.purpleSoft, color: t.purple }} className="font-bold text-[10px] px-2.5 py-0.5 rounded-md">
-                                {tx.type}
-                              </Badge>
-                            </ShadcnTableCell>
-                            <ShadcnTableCell className="py-4 font-mono text-xs" style={{ color: t.textMuted }}>
-                              {tx.from} → {tx.to}
-                            </ShadcnTableCell>
-                            <ShadcnTableCell className="py-4 font-semibold" style={{ color: t.text }}>
-                              {tx.amount}
-                            </ShadcnTableCell>
-                            <ShadcnTableCell className="py-4">
-                              <Badge variant="outline" style={{ borderColor: statusBorder, background: statusBg, color: statusColor }} className="font-bold text-[10px] px-2.5 py-0.5 rounded-md">
-                                {tx.status}
-                              </Badge>
-                            </ShadcnTableCell>
-                            <ShadcnTableCell className="py-4 pr-6 text-xs" style={{ color: t.textSub }}>
-                              {tx.timeAgo}
-                            </ShadcnTableCell>
-                          </>
+                        className={cn(
+                          "transition-colors border-b border-border",
+                          isLatest ? "bg-accent/[0.03] hover:bg-accent/[0.05]" : "hover:bg-muted/10"
                         )}
+                      >
+                        <ShadcnTableCell className="py-4 pl-6">
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={txUrl(tx.hash)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-accent hover:underline font-mono inline-flex items-center gap-1"
+                              >
+                                {shortHash(tx.hash)} <ExternalLink className="w-3 h-3" />
+                              </a>
+                              <CopyButton text={tx.hash.replace(/\.\.\./g, "")} />
+                            </div>
+                            {/* Inline display on mobile layout */}
+                            <div className="flex flex-col gap-0.5 md:hidden">
+                              <span className="text-[10px] font-mono text-muted-foreground">{tx.from} → {tx.to}</span>
+                              <span className="text-[10px] text-muted-foreground font-medium">{tx.amount} • {tx.timeAgo}</span>
+                            </div>
+                          </div>
+                        </ShadcnTableCell>
+                        <ShadcnTableCell className="py-4 hidden md:table-cell">
+                          <Badge variant="outline" className="font-bold text-[9px] px-2 py-0.5 rounded-md border-indigo-500/15 bg-indigo-500/5 text-indigo-500">
+                            {tx.type}
+                          </Badge>
+                        </ShadcnTableCell>
+                        <ShadcnTableCell className="py-4 font-mono text-xs text-muted-foreground hidden md:table-cell">
+                          {tx.from} → {tx.to}
+                        </ShadcnTableCell>
+                        <ShadcnTableCell className="py-4 font-bold font-mono text-xs hidden md:table-cell">
+                          {tx.amount}
+                        </ShadcnTableCell>
+                        <ShadcnTableCell className="py-4">
+                          <Badge variant="outline" className={cn("font-bold text-[9px] px-2 py-0.5 rounded-md", statusColor)}>
+                            {tx.status}
+                          </Badge>
+                        </ShadcnTableCell>
+                        <ShadcnTableCell className="py-4 pr-6 text-xs text-muted-foreground hidden md:table-cell">
+                          {tx.timeAgo}
+                        </ShadcnTableCell>
                       </ShadcnTableRow>
                     );
                   })
@@ -1391,50 +1497,64 @@ export default function XpulseDashboard() {
         </div>
 
         {/* ── Footer with Wallet Address ── */}
-        <div style={{ display: "flex", flexDirection: isTablet ? "column" : "row", alignItems: isTablet ? "stretch" : "center", justifyContent: "space-between", gap: 24, marginTop: 48, paddingBottom: 24, borderTop: `1px solid ${t.cardBorder}`, paddingTop: 24, animation: "fadeUp 0.5s ease 0.4s both" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 items-center gap-6 pt-6 border-t border-border mt-12 pb-6">
           {/* Agent wallet */}
-          <GlassCard style={{ padding: "16px 20px", display: "flex", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: 18, border: `1px solid ${t.cardBorder}` }}>
-            <div>
-              <div style={{ fontSize: 11, color: t.textSub, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Agent Wallet Address</div>
-              <div style={{ fontSize: 13, fontFamily: "monospace", color: t.text, fontWeight: 600 }}>{shortAddr(walletAddr)}</div>
-            </div>
-            <a
-              href={walletUrl(walletAddr)}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontSize: 12, color: t.accent, background: t.accentSoft, border: `1px solid ${t.accentGlow}`, padding: "8px 16px", borderRadius: 10, textDecoration: "none", fontWeight: 700, whiteSpace: "nowrap" as const, display: "inline-flex", alignItems: "center", gap: 4, transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)" }}
-              className="hover:scale-[1.02]"
-            >
-              View Wallet ↗
-            </a>
-          </GlassCard>
+          <div className="w-full flex justify-center lg:justify-start">
+            <GlassCard className="p-4 flex flex-col sm:flex-row items-center gap-4 border border-border w-full sm:w-auto">
+              <div>
+                <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1">
+                  Agent Wallet Address
+                </div>
+                <div className="text-xs font-bold font-mono flex items-center gap-1.5 justify-center lg:justify-start">
+                  <span>{shortAddr(walletAddr)}</span>
+                  <CopyButton text={walletAddr} />
+                </div>
+              </div>
+              <a
+                href={walletUrl(walletAddr)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-bold text-accent bg-accent/5 border border-accent/20 hover:bg-accent/15 px-4 py-2.5 rounded-xl text-center inline-flex items-center justify-center gap-1.5 transition-all duration-300 hover:scale-[1.02] w-full sm:w-auto"
+              >
+                <span>View Wallet</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </GlassCard>
+          </div>
 
           {/* Footer credit */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: isTablet ? "center" : "flex-start", gap: 12 }}>
+          <div className="flex justify-center">
             <a
               href="https://x.com/Ritesh5969"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}
+              className="flex items-center gap-3 group text-decoration-none"
             >
               <img
                 src="https://pbs.twimg.com/profile_images/1944572785373728768/Qc4iOnla_400x400.jpg"
                 alt="Ritesh5969"
-                style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", border: `1px solid ${t.cardBorder}`, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)" }}
+                className="w-10 h-10 rounded-full object-cover border border-border shadow-sm group-hover:scale-105 transition-all duration-300 ring-2 ring-border group-hover:ring-accent/50"
               />
-              <div style={{ fontSize: 11, color: t.textSub, letterSpacing: "0.05em", fontWeight: 500 }}>
-                Built by <span style={{ color: t.accent, fontWeight: 700 }}>Ritesh5969</span>
+              <div>
+                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Developer</p>
+                <p className="text-xs font-semibold group-hover:text-accent transition-colors">
+                  Built by <span className="font-bold text-accent">Ritesh5969</span>
+                </p>
               </div>
             </a>
           </div>
 
           {/* Last refresh indicator */}
-          <div style={{ fontSize: 11, color: t.textSub, textAlign: isTablet ? "left" as const : "right" as const, fontWeight: 500 }}>
-            <div>Refreshes automatically every 5s</div>
-            {agentStatus?.lastRun ? <div style={{ marginTop: 4 }}>Last agent run: {agentStatus.lastRunAgo}</div> : null}
+          <div className="w-full flex flex-col items-center lg:items-end text-center lg:text-right text-[10px] text-muted-foreground font-medium space-y-1">
+            <p className="flex items-center justify-center lg:justify-end gap-1">
+              <Clock className="w-3 h-3 text-emerald-500 animate-pulse" />
+              <span>Refreshes automatically every 5s</span>
+            </p>
+            {agentStatus?.lastRun ? (
+              <p>Last agent run: {agentStatus.lastRunAgo}</p>
+            ) : null}
           </div>
         </div>
-
       </main>
     </div>
   );
