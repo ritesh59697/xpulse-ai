@@ -294,10 +294,10 @@ function CopyButton({ text, className = "" }: { text: string; className?: string
   );
 }
 
-function StatCard({ label, value, delta, neg, loading }: { label: string; value: string; delta: string; neg?: boolean; loading?: boolean }) {
+function StatCard({ label, value, delta, neg, loading, className = "" }: { label: string; value: string; delta: string; neg?: boolean; loading?: boolean; className?: string }) {
   if (loading) {
     return (
-      <GlassCard className="p-6 transition-all duration-300">
+      <GlassCard className={cn("p-6 transition-all duration-300", className)}>
         <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2.5">
           {label}
         </div>
@@ -310,7 +310,7 @@ function StatCard({ label, value, delta, neg, loading }: { label: string; value:
   const hasTrend = neg !== undefined;
 
   return (
-    <GlassCard className="p-6 transition-all duration-300 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5">
+    <GlassCard className={cn("p-6 transition-all duration-300 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5", className)}>
       <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">
         {label}
       </div>
@@ -786,8 +786,21 @@ export default function XpulseDashboard() {
   const [portfolio, setPortfolio]           = useState({ okb: 0, wokb: 0, okbUsd: 0, wokbUsd: 0, totalUsd: 0 });
   const [agentRunning, setAgentRunning]     = useState(false);
   const [portfolioUpdatedAt, setPortfolioUpdatedAt] = useState<number | null>(null);
+  const [showGuide, setShowGuide]           = useState(false);
   const nextId                              = useRef(1);
   const prevStatusRef                       = useRef<AgentStatus | null>(null);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("xpulse-guide-dismissed");
+    if (!dismissed) {
+      setShowGuide(true);
+    }
+  }, []);
+
+  const handleDismissGuide = () => {
+    localStorage.setItem("xpulse-guide-dismissed", "true");
+    setShowGuide(false);
+  };
 
   const pushTimelineEvent = useCallback((type: TimelineEvent["type"], message: string, time: string) => {
     setTimeline((prev) => {
@@ -1148,8 +1161,8 @@ export default function XpulseDashboard() {
             </div>
           </div>
 
-          {/* Badges - Middle on desktop, wrapped on mobile */}
-          <div className="flex items-center gap-2 flex-wrap md:justify-center">
+          {/* Badges - Scrollable on mobile, wrapped on desktop */}
+          <div className="flex items-center gap-2 overflow-x-auto flex-nowrap md:flex-wrap md:justify-center scrollbar-none pb-0.5 max-w-full">
             <Tooltip>
               <TooltipTrigger>
                 <Badge variant="outline" className="rounded-full px-2.5 py-0.5 font-semibold text-[10px] border-accent/20 bg-accent/5 text-accent flex items-center gap-1 cursor-help">
@@ -1223,14 +1236,61 @@ export default function XpulseDashboard() {
 
       <main className="px-4 py-6 md:px-8 lg:px-12 max-w-[1440px] mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
 
+        {/* Welcome Guide for beginners (Stateful & Dismissible) */}
+        {showGuide && (
+          <GlassCard className="relative overflow-hidden p-5 md:p-6 border-accent/20 bg-accent/5 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-accent via-purple to-indigo-500" />
+            <button 
+              onClick={handleDismissGuide}
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+              title="Hide user guide"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+            
+            <div className="flex gap-4 items-start pr-6">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent flex-shrink-0">
+                <Brain className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-base font-extrabold tracking-tight">Welcome to Xpulse AI 🤖</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-3xl font-medium">
+                  Xpulse AI is an autonomous agent that monitors the OKX <strong>X Layer</strong>, generates market insights using Groq LLaMA 3.3, and executes onchain trades. Here is a quick guide to help you get started:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4.5 pt-3">
+                  <div className="p-3.5 rounded-xl border border-border bg-card shadow-sm hover:border-accent/10 transition-colors">
+                    <div className="text-[10px] text-accent font-extrabold uppercase tracking-wider mb-1">1. AI Suggestion</div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      The agent scans the markets to identify trading opportunities and updates the live analysis report.
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-border bg-card shadow-sm hover:border-indigo-500/10 transition-colors">
+                    <div className="text-[10px] text-indigo-500 font-extrabold uppercase tracking-wider mb-1">2. Safety Rules</div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Before placing trades, the agent validates confidence scores and price momentum triggers to manage risk.
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-border bg-card shadow-sm hover:border-emerald-500/10 transition-colors">
+                    <div className="text-[10px] text-emerald-500 font-extrabold uppercase tracking-wider mb-1">3. Onchain Execution</div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      When gates pass, it swaps assets (OKB/WOKB) autonomously. Follow executed steps in the Cycle Result trace.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+        )}
+
         {/* ── Stats row ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <StatCard
             label="Total Market Cap"
             value={formattedMarketCap}
             delta={formattedMarketCapDelta}
             neg={totalMarketCapDelta < 0}
             loading={isLoadingStats}
+            className="col-span-2 lg:col-span-1"
           />
           <StatCard
             label="Top Gainer"
@@ -1238,6 +1298,7 @@ export default function XpulseDashboard() {
             delta={topGainer ? `+${topGainer.price_change_percentage_24h.toFixed(2)}%` : "—"}
             neg={topGainer ? false : undefined}
             loading={isLoadingStats}
+            className="col-span-1 lg:col-span-1"
           />
           <StatCard
             label="Top Loser"
@@ -1245,9 +1306,10 @@ export default function XpulseDashboard() {
             delta={topLoser ? `${topLoser.price_change_percentage_24h.toFixed(2)}%` : "—"}
             neg={topLoser ? true : undefined}
             loading={isLoadingStats}
+            className="col-span-1 lg:col-span-1"
           />
           {/* Agent Portfolio card */}
-          <GlassCard className="p-6 transition-all duration-300 hover:border-accent/30 flex flex-col justify-between">
+          <GlassCard className="p-6 transition-all duration-300 hover:border-accent/30 flex flex-col justify-between col-span-2 lg:col-span-1">
             <div>
               <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">Agent Portfolio</div>
               <div className="text-[10px] text-muted-foreground font-medium mb-3 flex items-center gap-1">
@@ -1556,6 +1618,12 @@ export default function XpulseDashboard() {
             {agentStatus?.lastRun ? (
               <p>Last agent run: {agentStatus.lastRunAgo}</p>
             ) : null}
+            <button 
+              onClick={() => { localStorage.removeItem("xpulse-guide-dismissed"); setShowGuide(true); }}
+              className="text-[9px] text-accent hover:underline font-bold mt-1.5 transition-all active:scale-95"
+            >
+              Show Welcome Guide
+            </button>
           </div>
         </div>
       </main>
