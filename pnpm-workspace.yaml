@@ -1,0 +1,5 @@
+allowBuilds:
+  '0': msw
+  '1': unrs-resolver
+  msw: true
+  unrs-resolver: true
