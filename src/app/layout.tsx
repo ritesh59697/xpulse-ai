@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "Xpulse AI — Autonomous Crypto Agent on X Layer",
   description:
     "Autonomous crypto market intelligence agent. Real-time prices, AI alpha signals, and onchain execution on X Layer.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -20,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", inter.variable)}>
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
