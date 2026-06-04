@@ -1242,7 +1242,7 @@ export default function XpulseDashboard() {
             {/* Backdrop click to dismiss */}
             <div className="absolute inset-0 cursor-default" onClick={handleDismissGuide} />
             
-            <GlassCard className="relative w-full max-w-2xl overflow-hidden p-6 border-accent/20 bg-card shadow-2xl animate-in zoom-in-95 duration-200">
+            <GlassCard className="relative w-full max-w-2xl overflow-hidden p-6 md:p-8 border-accent/20 bg-card shadow-2xl animate-in zoom-in-95 duration-200">
               <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-accent via-purple to-indigo-500" />
               <button 
                 onClick={handleDismissGuide}
@@ -1253,35 +1253,95 @@ export default function XpulseDashboard() {
               </button>
               
               <div className="flex gap-4 items-start pr-4 mt-2">
-                <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent flex-shrink-0 animate-pulse">
-                  <Brain className="w-5 h-5" />
+                <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent flex-shrink-0 animate-pulse">
+                  <Brain className="w-6 h-6" />
                 </div>
-                <div className="space-y-3">
-                  <h2 className="text-lg font-black tracking-tight">Welcome to Xpulse AI 🤖</h2>
-                  <p className="text-xs text-muted-foreground leading-relaxed max-w-xl font-semibold">
-                    Xpulse AI is an autonomous crypto agent executing trades on OKX's <strong>X Layer</strong>. Here is a quick breakdown to help you understand the dashboard:
+                <div className="space-y-4.5 w-full">
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight bg-gradient-to-r from-foreground via-accent to-indigo-500 bg-clip-text text-transparent">
+                      Welcome to Xpulse AI
+                    </h2>
+                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
+                      Your Autonomous Trading Companion on X Layer
+                    </p>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground leading-relaxed max-w-xl font-medium">
+                    Xpulse AI is an autonomous onchain agent that constantly monitors DEX pools, evaluates risk rules, and executes trades. Here is a quick breakdown to help you understand the dashboard:
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+
+                  {/* Stepper Flow Diagram */}
+                  <div className="grid grid-cols-5 items-center gap-2 p-3 rounded-2xl bg-muted/15 border border-border/50 text-center">
+                    <div className="col-span-1 flex flex-col items-center gap-1">
+                      <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                        <Brain className="w-4 h-4" />
+                      </div>
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">1. Scan</span>
+                    </div>
+                    <div className="col-span-1 flex justify-center text-muted-foreground/30">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                    <div className="col-span-1 flex flex-col items-center gap-1">
+                      <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                        <Shield className="w-4 h-4" />
+                      </div>
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">2. Gate</span>
+                    </div>
+                    <div className="col-span-1 flex justify-center text-muted-foreground/30">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                    <div className="col-span-1 flex flex-col items-center gap-1">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                        <Zap className="w-4 h-4" />
+                      </div>
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">3. Trade</span>
+                    </div>
+                  </div>
+
+                  {/* Description Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                     <div className="p-3.5 rounded-xl border border-border bg-muted/5 hover:border-accent/10 transition-colors">
-                      <div className="text-[10px] text-accent font-extrabold uppercase tracking-wider mb-1">1. AI Analysis</div>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Brain className="w-3.5 h-3.5 text-accent" />
+                        <span className="text-xs font-bold text-foreground">AI Suggestion</span>
+                      </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        The agent scans OKX DEX markets and uses LLaMA 3.3 to analyze and find profitable opportunities.
+                        Scans DEX markets and uses LLaMA 3.3 to analyze trends and publish trading suggestions.
                       </p>
                     </div>
                     <div className="p-3.5 rounded-xl border border-border bg-muted/5 hover:border-indigo-500/10 transition-colors">
-                      <div className="text-[10px] text-indigo-500 font-extrabold uppercase tracking-wider mb-1">2. Safety Rules</div>
+                      <div className="text-[10px] sm:text-xs flex items-center gap-1.5 mb-1.5">
+                        <Shield className="w-3.5 h-3.5 text-indigo-500" />
+                        <span className="text-xs font-bold text-foreground">Safety Rules</span>
+                      </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        It validates risk control limits, confidence score checks, and price momentum gates before executing.
+                        Enforces risk gates: requires a 60% AI confidence threshold and checks momentum changes.
                       </p>
                     </div>
                     <div className="p-3.5 rounded-xl border border-border bg-muted/5 hover:border-emerald-500/10 transition-colors">
-                      <div className="text-[10px] text-emerald-500 font-extrabold uppercase tracking-wider mb-1">3. Auto Execution</div>
+                      <div className="text-[10px] sm:text-xs flex items-center gap-1.5 mb-1.5">
+                        <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-xs font-bold text-foreground">Auto Execution</span>
+                      </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        When safety rules pass, it submits swaps onchain. You can track full cycle traces inside Cycle Result.
+                        Swaps assets (OKB/WOKB) directly on X Layer. Monitor cycle traces inside Cycle Result.
                       </p>
                     </div>
                   </div>
-                  <div className="pt-4 flex justify-end">
+
+                  {/* Helper Tips */}
+                  <div className="p-3.5 rounded-xl border border-border bg-muted/10 text-[11px] text-muted-foreground leading-relaxed space-y-1.5 font-medium">
+                    <p className="flex items-start gap-1.5">
+                      <span className="text-accent flex-shrink-0">💡</span>
+                      <span><strong>Fully Autonomous:</strong> The agent runs on the server. You do not need to keep this tab open for it to execute trades.</span>
+                    </p>
+                    <p className="flex items-start gap-1.5">
+                      <span className="text-accent flex-shrink-0">🔄</span>
+                      <span><strong>Manual Force:</strong> Tap the <strong>Run Agent</strong> button in the header at any time to trigger an immediate cycle run.</span>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
                     <button
                       onClick={handleDismissGuide}
                       className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-accent to-indigo-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-accent/10"
